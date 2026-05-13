@@ -1,0 +1,18 @@
+{
+  "appTitle": "CropGuard AI",
+  "home": "Fie",
+  "scan": "Scan",
+  "history": "Abakwasɛm",
+  "settings": "Mpɛnsɛmpɛnsɛmu",
+  "startScanning": "Fi scan ase",
+  "recentScans": "Scans a ɛbaae nnansa yi",
+  "noRecentScans": "Yɛanhunu scans biara",
+  "farmHealth": "Afuom Akwahosan",
+  "login": "Kɔ mu",
+  "register": "Kyerɛ wo din",
+  "logout": "Firi mu",
+  "email": "Email",
+  "password": "Password",
+  "forgotPassword": "Wo werɛ afi wo password?",
+  "guestLogin": "Yɛ no sɛ ɔhɔhoɔ"
+}

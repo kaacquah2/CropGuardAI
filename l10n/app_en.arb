@@ -1,0 +1,18 @@
+{
+  "appTitle": "CropGuard AI",
+  "home": "Home",
+  "scan": "Scan",
+  "history": "History",
+  "settings": "Settings",
+  "startScanning": "Start Scanning",
+  "recentScans": "Recent Scans",
+  "noRecentScans": "No recent scans found",
+  "farmHealth": "Farm Health",
+  "login": "Login",
+  "register": "Register",
+  "logout": "Logout",
+  "email": "Email",
+  "password": "Password",
+  "forgotPassword": "Forgot Password?",
+  "guestLogin": "Continue as Guest"
+}
