@@ -194,7 +194,7 @@ class _CropNavBar extends StatelessWidget {
   static const _selectedIcons = [Icons.home, Icons.camera_alt, Icons.history, Icons.more_horiz];
 
   int _selectedIndex() {
-    if (location.startsWith('/scanner')) return 1;
+    // /scanner is outside ShellRoute — this bar is not shown on the camera screen.
     if (location.startsWith('/history')) return 2;
     if (location.startsWith('/more')) return 3;
     return 0;

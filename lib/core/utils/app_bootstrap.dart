@@ -2,6 +2,8 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'dart:developer' as dev;
 
+import '../config/app_secrets.dart';
+
 class AppBootstrap {
   static Future<void> runStartupTasks() async {
     try {
@@ -28,6 +30,11 @@ class AppBootstrap {
       minimumFetchInterval: const Duration(hours: 1),
     ));
     await remoteConfig.fetchAndActivate();
+
+    final ghanaNlpKey = remoteConfig.getString('ghana_nlp_subscription_key');
+    if (ghanaNlpKey.isNotEmpty) {
+      AppSecrets.setGhanaNlpSubscriptionKey(ghanaNlpKey);
+    }
   }
 
   static Future<void> _initAppCheck() async {

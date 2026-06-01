@@ -1,4 +1,6 @@
 import 'dart:developer' as dev;
+
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
 class AppLogger {
@@ -17,11 +19,19 @@ class AppLogger {
   }
 
   static void e(String message, [dynamic error, StackTrace? stackTrace]) {
-    dev.log('ERROR: $message', 
-      name: 'CropGuard', 
-      error: error, 
-      stackTrace: stackTrace
+    dev.log(
+      'ERROR: $message',
+      name: 'CropGuard',
+      error: error,
+      stackTrace: stackTrace,
     );
-    // Here you could also send to Sentry or Crashlytics
+    if (kReleaseMode) {
+      FirebaseCrashlytics.instance.recordError(
+        error ?? Exception(message),
+        stackTrace ?? StackTrace.current,
+        reason: message,
+        fatal: false,
+      );
+    }
   }
 }

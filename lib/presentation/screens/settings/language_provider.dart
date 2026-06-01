@@ -27,7 +27,22 @@ class LanguageProvider extends ChangeNotifier {
   AppLanguage get currentLanguage => _currentLanguage;
 
   void _loadLanguage() {
-    final code = _prefs.getString(_key) ?? 'en';
+    var code = _prefs.getString(_key);
+    if (code == null) {
+      // Migrate legacy SettingsProvider display-name key.
+      final legacy = _prefs.getString('language');
+      if (legacy != null) {
+        code = AppLanguage.values
+            .firstWhere(
+              (l) => l.displayName == legacy,
+              orElse: () => AppLanguage.english,
+            )
+            .code;
+        _prefs.setString(_key, code);
+        _prefs.remove('language');
+      }
+    }
+    code ??= 'en';
     _currentLanguage = AppLanguage.values.firstWhere(
       (l) => l.code == code,
       orElse: () => AppLanguage.english,

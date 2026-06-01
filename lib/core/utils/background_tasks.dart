@@ -21,6 +21,7 @@ void callbackDispatcher() {
           options: DefaultFirebaseOptions.currentPlatform,
         );
       }
+      // Idempotent: setupServiceLocator returns early if already registered.
       await setupServiceLocator();
       switch (task) {
         case 'sync_scans':

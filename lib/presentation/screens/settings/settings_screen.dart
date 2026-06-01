@@ -49,7 +49,7 @@ class SettingsScreen extends StatelessWidget {
           _ActionRow(
             label: 'Language',
             value: langProvider.currentLanguage.displayName,
-            onTap: () => _showLanguagePicker(context, provider, langProvider),
+            onTap: () => _showLanguagePicker(context, langProvider),
           ),
           _ToggleRow(
             label: 'Large Text Mode',
@@ -114,7 +114,6 @@ class SettingsScreen extends StatelessWidget {
 
   void _showLanguagePicker(
     BuildContext context,
-    SettingsProvider provider,
     LanguageProvider langProvider,
   ) {
     showModalBottomSheet(
@@ -152,7 +151,6 @@ class SettingsScreen extends StatelessWidget {
                       : null,
                   onTap: () {
                     langProvider.setLanguage(lang);
-                    provider.setLanguage(lang.displayName);
                     Navigator.pop(ctx);
                   },
                 );

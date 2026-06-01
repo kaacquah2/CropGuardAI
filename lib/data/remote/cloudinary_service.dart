@@ -9,11 +9,28 @@ class CloudinaryService {
   static const String cloudName = 'dbkdu07dh';
   static const String uploadPreset = 'CropGuard';
 
+  static const String _placeholderCloudName = 'YOUR_CLOUD_NAME';
+  static const String _placeholderPreset = 'YOUR_PRESET_NAME';
+
   static const Duration _timeout = Duration(seconds: 30);
+
+  /// Throws if [cloudName] or [uploadPreset] were never set (placeholder values).
+  void ensureConfigured() {
+    if (cloudName.isEmpty ||
+        cloudName == _placeholderCloudName ||
+        uploadPreset.isEmpty ||
+        uploadPreset == _placeholderPreset) {
+      throw StateError(
+        'Cloudinary is not configured. Set CloudinaryService.cloudName and '
+        'uploadPreset to your dashboard values before uploading images.',
+      );
+    }
+  }
 
   /// Uploads [localPath] and returns the HTTPS [secure_url], or throws with
   /// Cloudinary's error message when the API rejects the request.
   Future<String> uploadImage(String localPath) async {
+    ensureConfigured();
     final file = File(localPath);
     if (!await file.exists()) {
       throw Exception('Image file not found.');

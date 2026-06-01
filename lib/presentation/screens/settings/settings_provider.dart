@@ -20,17 +20,12 @@ class SettingsProvider extends ChangeNotifier {
 
   bool largeTextMode = false;
   bool showConfidence = true;
-  String currentLanguage = 'English';
   String? deleteError;
   bool isDeleting = false;
-
-  static const _supportedLanguages = ['English', 'Twi', 'French', 'Hausa', 'Ewe', 'Dagbani'];
-  List<String> get supportedLanguages => _supportedLanguages;
 
   void _load() {
     largeTextMode = _prefs.getBool('large_text_mode') ?? false;
     showConfidence = _prefs.getBool('show_confidence') ?? true;
-    currentLanguage = _prefs.getString('language') ?? 'English';
     notifyListeners();
   }
 
@@ -54,12 +49,6 @@ class SettingsProvider extends ChangeNotifier {
   void setShowConfidence(bool v) {
     showConfidence = v;
     _prefs.setBool('show_confidence', v);
-    notifyListeners();
-  }
-
-  void setLanguage(String lang) {
-    currentLanguage = lang;
-    _prefs.setString('language', lang);
     notifyListeners();
   }
 

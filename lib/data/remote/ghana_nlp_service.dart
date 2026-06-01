@@ -3,25 +3,32 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/config/app_secrets.dart';
 import '../../core/utils/app_logger.dart';
 
 class GhanaNlpService {
   final String _baseUrl = 'https://translation-api.ghananlp.org';
-  final String _subscriptionKey = '0b474051f13046d3b9d319403248e73a';
 
   static final GhanaNlpService _instance = GhanaNlpService._internal();
   factory GhanaNlpService() => _instance;
   GhanaNlpService._internal();
 
+  String? get _subscriptionKey => AppSecrets.ghanaNlpSubscriptionKey;
+
   /// Text-to-Speech: Synthesizes text into audio
   Future<File?> synthesize(String text, {String language = 'tw'}) async {
+    final key = _subscriptionKey;
+    if (key == null) {
+      AppLogger.w('Ghana NLP TTS skipped: subscription key not configured');
+      return null;
+    }
     final stopwatch = Stopwatch()..start();
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/tts/v1/synthesize'),
         headers: {
           'Content-Type': 'application/json',
-          'Ocp-Apim-Subscription-Key': _subscriptionKey,
+          'Ocp-Apim-Subscription-Key': key,
         },
         body: jsonEncode({
           'text': text,
@@ -51,6 +58,11 @@ class GhanaNlpService {
 
   /// Automatic Speech Recognition: Transcribes audio into text
   Future<String?> transcribe(File audioFile, {String language = 'tw'}) async {
+    final key = _subscriptionKey;
+    if (key == null) {
+      AppLogger.w('Ghana NLP ASR skipped: subscription key not configured');
+      return null;
+    }
     final stopwatch = Stopwatch()..start();
     try {
       final bytes = await audioFile.readAsBytes();
@@ -58,7 +70,7 @@ class GhanaNlpService {
         Uri.parse('$_baseUrl/asr/v2/transcribe?language=$language'),
         headers: {
           'Content-Type': 'audio/mpeg',
-          'Ocp-Apim-Subscription-Key': _subscriptionKey,
+          'Ocp-Apim-Subscription-Key': key,
         },
         body: bytes,
       ).timeout(const Duration(seconds: 10));

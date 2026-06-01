@@ -36,14 +36,17 @@ Pods/
 *.pbxuser
 *.xcworkspace
 xcuserdata/
-Config/
+ios/Config/
 DerivedData/
 *.moved-aside
 *.xcuserstate
 Pods/
 
 # Environment
-.env*
+.env
+.env.local
+secrets.env
+!.env.example
 
 # IDEs
 .idea/
