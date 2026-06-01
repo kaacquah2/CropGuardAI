@@ -6,7 +6,8 @@ enum AppLanguage {
   twi('tw', 'Twi (Ghana)'),
   french('fr', 'Français'),
   hausa('ha', 'Hausa'),
-  ewe('ee', 'Ewe');
+  ewe('ee', 'Ewe'),
+  dagbani('dag', 'Dagbani');
 
   final String code;
   final String displayName;

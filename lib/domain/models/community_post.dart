@@ -1,7 +1,7 @@
-/// Equivalent of CommunityPost.kt domain data class
+/// Community feed post (body-only; images stored as HTTPS URLs).
 class CommunityPost {
   final String id;
-  final String title;
+  final String userId;
   final String body;
   final String author;
   final String tag;
@@ -11,7 +11,7 @@ class CommunityPost {
 
   const CommunityPost({
     required this.id,
-    required this.title,
+    required this.userId,
     required this.body,
     required this.author,
     this.tag = 'General',
@@ -23,8 +23,8 @@ class CommunityPost {
   factory CommunityPost.fromMap(Map<String, dynamic> map, String id) {
     return CommunityPost(
       id: id,
-      title: map['title'] as String? ?? '',
-      body: map['body'] as String? ?? '',
+      userId: map['userId'] as String? ?? '',
+      body: map['body'] as String? ?? map['title'] as String? ?? '',
       author: map['author'] as String? ?? 'Anonymous',
       tag: map['tag'] as String? ?? 'General',
       imageUri: map['imageUri'] as String?,
@@ -36,7 +36,7 @@ class CommunityPost {
 
   Map<String, dynamic> toMap() {
     return {
-      'title': title,
+      'userId': userId,
       'body': body,
       'author': author,
       'tag': tag,

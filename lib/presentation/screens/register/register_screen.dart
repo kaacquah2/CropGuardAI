@@ -25,10 +25,12 @@ class _RegisterBody extends StatelessWidget {
     final provider = context.watch<RegisterProvider>();
     final colors = context.colors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,6 +86,14 @@ class _RegisterBody extends StatelessWidget {
                   color: colors.muted,
                 ),
               ),
+              const SizedBox(height: 16),
+              CropGuardTextField(
+                value: provider.confirmPassword,
+                onChanged: provider.setConfirmPassword,
+                label: 'Confirm Password',
+                placeholder: '••••••••',
+                obscureText: provider.obscurePassword,
+              ),
               const SizedBox(height: 8),
 
               // Strength bar
@@ -100,30 +110,32 @@ class _RegisterBody extends StatelessWidget {
                     side: BorderSide(color: colors.border),
                   ),
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.push('/terms_of_service'),
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                              color: colors.muted, fontSize: 12),
-                          children: [
-                            const TextSpan(text: 'I agree to the '),
-                            TextSpan(
-                              text: 'Terms of Service',
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text('I agree to the ',
+                            style: TextStyle(
+                                color: colors.muted, fontSize: 12)),
+                        GestureDetector(
+                          onTap: () => context.push('/terms_of_service'),
+                          child: Text('Terms of Service',
                               style: TextStyle(
                                   color: colors.primary,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            const TextSpan(text: ' and '),
-                            TextSpan(
-                              text: 'Privacy Policy',
-                              style: TextStyle(
-                                  color: colors.primary,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12)),
                         ),
-                      ),
+                        Text(' and ',
+                            style: TextStyle(
+                                color: colors.muted, fontSize: 12)),
+                        GestureDetector(
+                          onTap: () => context.push('/privacy_policy'),
+                          child: Text('Privacy Policy',
+                              style: TextStyle(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12)),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -139,7 +151,7 @@ class _RegisterBody extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.diseaseBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.error.withOpacity(0.3)),
+                    border: Border.all(color: colors.error.withValues(alpha: 0.3)),
                   ),
                   child: Text(provider.errorMessage!,
                       style: TextStyle(color: colors.error, fontSize: 13)),
@@ -177,6 +189,7 @@ class _RegisterBody extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

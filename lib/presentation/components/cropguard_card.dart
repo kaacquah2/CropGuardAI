@@ -7,6 +7,7 @@ class CropGuardCard extends StatelessWidget {
   final EdgeInsets padding;
   final Color? backgroundColor;
   final Color? borderColor;
+  final VoidCallback? onTap;
 
   const CropGuardCard({
     super.key,
@@ -14,12 +15,13 @@ class CropGuardCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.backgroundColor,
     this.borderColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Container(
+    final card = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: backgroundColor ?? colors.surface,
@@ -27,6 +29,17 @@ class CropGuardCard extends StatelessWidget {
         border: Border.all(color: borderColor ?? colors.border, width: 1),
       ),
       child: child,
+    );
+
+    if (onTap == null) return card;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: card,
+      ),
     );
   }
 }

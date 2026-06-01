@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/app_localizations.dart';
 
+import '../../core/di/service_locator.dart';
+import '../../data/remote/firebase_auth_service.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/login/login_screen.dart';
@@ -21,6 +24,8 @@ import '../screens/legal/privacy_policy_screen.dart';
 // TermsOfServiceScreen is defined in privacy_policy_screen.dart
 import '../screens/analysing/analysing_screen.dart';
 import '../screens/result/batch_result_screen.dart';
+import '../screens/more/more_screen.dart';
+import '../screens/notifications/notifications_screen.dart';
 
 /// Equivalent of CropGuardNavGraph.kt
 class AppRouter {
@@ -28,6 +33,24 @@ class AppRouter {
 
   static final router = GoRouter(
     initialLocation: '/splash',
+    redirect: (context, state) {
+      final path = state.matchedLocation;
+      final publicRoutes = [
+        '/splash',
+        '/onboarding',
+        '/login',
+        '/register',
+        '/privacy_policy',
+        '/terms_of_service',
+      ];
+      final isPublic = publicRoutes.contains(path);
+      final isSignedIn = sl<FirebaseAuthService>().isSignedIn;
+
+      if (!isSignedIn && !isPublic) {
+        return '/login';
+      }
+      return null;
+    },
     routes: [
       // ─── Auth flow ─────────────────────────────────────────────────────
       GoRoute(
@@ -57,21 +80,21 @@ class AppRouter {
             builder: (ctx, state) => const HomeScreen(),
           ),
           GoRoute(
-            path: '/scanner',
-            builder: (ctx, state) => const ScannerScreen(),
-          ),
-          GoRoute(
             path: '/history',
             builder: (ctx, state) => const HistoryScreen(),
           ),
           GoRoute(
-            path: '/settings',
-            builder: (ctx, state) => const SettingsScreen(),
+            path: '/more',
+            builder: (ctx, state) => const MoreScreen(),
           ),
         ],
       ),
 
       // ─── Full-screen routes ────────────────────────────────────────────
+      GoRoute(
+        path: '/scanner',
+        builder: (ctx, state) => const ScannerScreen(),
+      ),
       GoRoute(
         path: '/analysing',
         builder: (ctx, state) {
@@ -132,8 +155,16 @@ class AppRouter {
         builder: (ctx, state) => const PrivacyPolicyScreen(),
       ),
       GoRoute(
+        path: '/settings',
+        builder: (ctx, state) => const SettingsScreen(),
+      ),
+      GoRoute(
         path: '/terms_of_service',
         builder: (ctx, state) => const TermsOfServiceScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (ctx, state) => const NotificationsScreen(),
       ),
     ],
   );
@@ -159,25 +190,53 @@ class _CropNavBar extends StatelessWidget {
 
   const _CropNavBar({required this.location});
 
-  static const _routes = ['/home', '/scanner', '/history', '/settings'];
-  static const _labels = ['Home', 'Scan', 'History', 'Settings'];
-  static const _icons = [Icons.home_outlined, Icons.camera_alt_outlined, Icons.history_outlined, Icons.settings_outlined];
-  static const _selectedIcons = [Icons.home, Icons.camera_alt, Icons.history, Icons.settings];
+  static const _icons = [Icons.home_outlined, Icons.camera_alt_outlined, Icons.history_outlined, Icons.more_horiz_outlined];
+  static const _selectedIcons = [Icons.home, Icons.camera_alt, Icons.history, Icons.more_horiz];
+
+  int _selectedIndex() {
+    if (location.startsWith('/scanner')) return 1;
+    if (location.startsWith('/history')) return 2;
+    if (location.startsWith('/more')) return 3;
+    return 0;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final idx = _routes.indexWhere((r) => location.startsWith(r));
-    return NavigationBar(
-      selectedIndex: idx < 0 ? 0 : idx,
-      onDestinationSelected: (i) => context.go(_routes[i]),
+    return Semantics(
+      container: true,
+      label: 'Main navigation',
+      child: NavigationBar(
+      selectedIndex: _selectedIndex(),
+      onDestinationSelected: (i) {
+        switch (i) {
+          case 0:
+            context.go('/home');
+            break;
+          case 1:
+            context.push('/scanner');
+            break;
+          case 2:
+            context.go('/history');
+            break;
+          case 3:
+            context.go('/more');
+            break;
+        }
+      },
+      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
       destinations: List.generate(
-        _routes.length,
-        (i) => NavigationDestination(
-          icon: Icon(_icons[i]),
-          selectedIcon: Icon(_selectedIcons[i]),
-          label: _labels[i],
-        ),
+        4,
+        (i) {
+          final l10n = AppLocalizations.of(context)!;
+          final labels = [l10n.home, l10n.scan, l10n.history, l10n.more];
+          return NavigationDestination(
+            icon: Icon(_icons[i], size: 28),
+            selectedIcon: Icon(_selectedIcons[i], size: 28),
+            label: labels[i],
+          );
+        },
       ),
+    ),
     );
   }
 }

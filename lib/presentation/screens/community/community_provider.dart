@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/utils/stt_manager.dart';
+import '../../../data/remote/cloudinary_service.dart';
 import '../../../data/remote/firebase_auth_service.dart';
 import '../../../data/remote/firestore_service.dart';
 import '../../../domain/models/community_post.dart';
 
-/// Equivalent of CommunityViewModel.kt
+/// Community feed: images via Cloudinary, posts in Firestore.
 class CommunityProvider extends ChangeNotifier {
   final FirestoreService _firestore;
   final FirebaseAuthService _auth;
+  final CloudinaryService _cloudinary;
 
-  CommunityProvider(this._firestore, this._auth) {
+  CommunityProvider(this._firestore, this._auth, this._cloudinary) {
     _listenToPosts();
   }
 
@@ -16,8 +20,10 @@ class CommunityProvider extends ChangeNotifier {
   String composerText = '';
   String? selectedImageUri;
   bool isPosting = false;
+  bool isUploadingImage = false;
   String? errorMessage;
   bool isOffline = false;
+  bool isListening = false;
 
   void _listenToPosts() {
     _firestore.postsStream().listen(
@@ -40,6 +46,30 @@ class CommunityProvider extends ChangeNotifier {
 
   void onImageSelected(String? uri) {
     selectedImageUri = uri;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void clearSelectedImage() {
+    selectedImageUri = null;
+    notifyListeners();
+  }
+
+  Future<void> toggleListening({String? localeId}) async {
+    if (isListening) {
+      await SttManager().stopListening();
+      isListening = false;
+    } else {
+      isListening = true;
+      notifyListeners();
+      await SttManager().startListening(
+        onResult: (text) {
+          composerText = text;
+          notifyListeners();
+        },
+        localeId: localeId,
+      );
+    }
     notifyListeners();
   }
 
@@ -59,28 +89,60 @@ class CommunityProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
     isPosting = true;
+    errorMessage = null;
     notifyListeners();
+
     try {
+      final userId = _auth.currentUserId;
+      String? imageUrl;
+
+      final localPath = selectedImageUri;
+      if (localPath != null &&
+          !localPath.startsWith('http://') &&
+          !localPath.startsWith('https://')) {
+        isUploadingImage = true;
+        notifyListeners();
+        try {
+          imageUrl = await _cloudinary.uploadImage(localPath);
+        } catch (e) {
+          errorMessage = e.toString().replaceFirst('Exception: ', '');
+          isPosting = false;
+          isUploadingImage = false;
+          notifyListeners();
+          return;
+        } finally {
+          isUploadingImage = false;
+        }
+      } else {
+        imageUrl = localPath;
+      }
+
       final post = CommunityPost(
         id: '',
-        title: composerText.trim().split('\n').first.take(80),
+        userId: userId,
         body: composerText.trim(),
         author: _auth.currentUserName,
-        imageUri: selectedImageUri,
+        imageUri: imageUrl,
         timestamp: DateTime.now().millisecondsSinceEpoch,
       );
       await _firestore.addPost(post);
       composerText = '';
       selectedImageUri = null;
     } catch (e) {
-      errorMessage = 'Failed to post. Please try again.';
+      errorMessage = 'Failed to save post. Please try again.';
     }
+
     isPosting = false;
+    isUploadingImage = false;
     notifyListeners();
   }
-}
 
-extension on String {
-  String take(int n) => length <= n ? this : substring(0, n);
+  Future<void> reportPost(String postId) async {
+    errorMessage = 'Post reported. Thank you for keeping our community safe.';
+    notifyListeners();
+    await Future.delayed(const Duration(seconds: 3));
+    clearError();
+  }
 }

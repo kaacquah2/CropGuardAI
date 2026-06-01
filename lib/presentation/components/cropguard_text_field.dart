@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
 /// Text field matching CropGuardTextField.kt
-class CropGuardTextField extends StatelessWidget {
+class CropGuardTextField extends StatefulWidget {
   final String value;
   final ValueChanged<String> onChanged;
+  final FocusNode? focusNode;
   final String? label;
   final String? placeholder;
   final bool obscureText;
@@ -15,6 +16,7 @@ class CropGuardTextField extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.focusNode,
     this.label,
     this.placeholder,
     this.obscureText = false,
@@ -23,16 +25,46 @@ class CropGuardTextField extends StatelessWidget {
   });
 
   @override
+  State<CropGuardTextField> createState() => _CropGuardTextFieldState();
+}
+
+class _CropGuardTextFieldState extends State<CropGuardTextField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(covariant CropGuardTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != _controller.text) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: _controller.text.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (label != null)
+        if (widget.label != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
-              label!.toUpperCase(),
+              widget.label!.toUpperCase(),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: colors.muted,
                     letterSpacing: 0.8,
@@ -40,18 +72,19 @@ class CropGuardTextField extends StatelessWidget {
             ),
           ),
         TextFormField(
-          initialValue: value,
-          onChanged: onChanged,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
+          controller: _controller,
+          focusNode: widget.focusNode,
+          onChanged: widget.onChanged,
+          obscureText: widget.obscureText,
+          keyboardType: widget.keyboardType,
           style: Theme.of(context)
               .textTheme
               .bodyMedium
               ?.copyWith(color: colors.onBackground),
           decoration: InputDecoration(
-            hintText: placeholder,
+            hintText: widget.placeholder,
             hintStyle: TextStyle(color: colors.muted),
-            suffixIcon: suffixIcon,
+            suffixIcon: widget.suffixIcon,
             filled: true,
             fillColor: colors.surface,
             contentPadding:

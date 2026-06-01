@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/email_validator.dart';
 import '../../../domain/usecases/auth/register_usecase.dart';
 
 enum RegisterStatus { idle, loading, success, error }
@@ -12,6 +13,7 @@ class RegisterProvider extends ChangeNotifier {
   String name = '';
   String email = '';
   String password = '';
+  String confirmPassword = '';
   bool termsAccepted = false;
   RegisterStatus status = RegisterStatus.idle;
   String? errorMessage;
@@ -20,6 +22,7 @@ class RegisterProvider extends ChangeNotifier {
   void setName(String v) { name = v; notifyListeners(); }
   void setEmail(String v) { email = v; notifyListeners(); }
   void setPassword(String v) { password = v; notifyListeners(); }
+  void setConfirmPassword(String v) { confirmPassword = v; notifyListeners(); }
   void setTermsAccepted(bool v) { termsAccepted = v; notifyListeners(); }
   void togglePasswordVisibility() {
     obscurePassword = !obscurePassword;
@@ -29,16 +32,30 @@ class RegisterProvider extends ChangeNotifier {
   int get passwordStrength {
     if (password.isEmpty) return 0;
     if (password.length < 6) return 1;
-    if (password.length >= 8 && password.contains(RegExp(r'[0-9]'))) return 3;
-    if (password.length >= 12 &&
-        password.contains(RegExp(r'[0-9]')) &&
-        password.contains(RegExp(r'[^a-zA-Z0-9]'))) return 4;
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
+    final hasSpecial = password.contains(RegExp(r'[^a-zA-Z0-9]'));
+    if (password.length >= 12 && hasDigit && hasSpecial) return 4;
+    if (password.length >= 8 && hasDigit) return 3;
+    if (password.length >= 9 && hasDigit && hasSpecial) return 3;
     return 2;
   }
 
   Future<void> register(VoidCallback onSuccess) async {
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+    if (name.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       errorMessage = 'Please fill in all fields.';
+      notifyListeners();
+      return;
+    }
+    if (!EmailValidator.isValid(email)) {
+      errorMessage = 'Please enter a valid email address.';
+      notifyListeners();
+      return;
+    }
+    if (password != confirmPassword) {
+      errorMessage = 'Passwords do not match.';
       notifyListeners();
       return;
     }

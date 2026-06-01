@@ -59,6 +59,43 @@ class FirebaseAuthService {
     await _auth.signOut();
   }
 
+  // ─── Re-authentication ────────────────────────────────────────────────
+  bool get hasPasswordProvider =>
+      _auth.currentUser?.providerData
+          .any((p) => p.providerId == 'password') ??
+      false;
+
+  bool get hasGoogleProvider =>
+      _auth.currentUser?.providerData
+          .any((p) => p.providerId == 'google.com') ??
+      false;
+
+  Future<void> reauthenticateWithPassword(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null || email.isEmpty) {
+      throw Exception('No email account to re-authenticate');
+    }
+    final credential = EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
+    await user.reauthenticateWithCredential(credential);
+  }
+
+  Future<void> reauthenticateWithGoogle() async {
+    final googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) throw Exception('Google sign-in cancelled');
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No user signed in');
+    await user.reauthenticateWithCredential(credential);
+  }
+
   // ─── Delete Account ───────────────────────────────────────────────────
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;

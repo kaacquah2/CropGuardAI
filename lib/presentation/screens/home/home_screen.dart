@@ -1,21 +1,55 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/scan_severity.dart';
 import '../../../domain/models/detection_result.dart';
 import '../../components/cropguard_card.dart';
 import '../../components/farm_health_ring.dart';
 import '../../components/offline_banner.dart';
 import '../../components/section_label.dart';
 import '../../components/severity_badge.dart';
+import '../../../data/local/database_helper.dart';
+import '../../../core/di/service_locator.dart';
 import 'home_provider.dart';
+import 'widgets/weather_forecast_widget.dart';
+import 'widgets/disease_trend_chart.dart';
+import 'widgets/planting_calendar_widget.dart';
 
 /// Equivalent of HomeScreen.kt
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _unreadCount = 0;
+  final DatabaseHelper _db = sl<DatabaseHelper>();
+  Timer? _badgeTimer;
+  @override
+  void initState() {
+    super.initState();
+    _refreshUnread();
+    _badgeTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshUnread();
+    });
+  }
+
+  @override
+  void dispose() {
+    _badgeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshUnread() async {
+    final count = await _db.getUnreadNotificationCount();
+    if (mounted) setState(() => _unreadCount = count);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +78,42 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               actions: [
-                IconButton(
-                  icon: Icon(Icons.notifications_outlined,
-                      color: colors.onBackground),
-                  onPressed: () {},
+                // Notification bell with unread badge
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.notifications_outlined,
+                          color: colors.onBackground),
+                      onPressed: () async {
+                        await context.push('/notifications');
+                        _refreshUnread();
+                      },
+                    ),
+                    if (_unreadCount > 0)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: colors.diseaseRed,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: colors.surface, width: 1.5),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _unreadCount > 9 ? '9+' : '$_unreadCount',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 IconButton(
                   icon: CircleAvatar(
@@ -71,7 +137,11 @@ class HomeScreen extends StatelessWidget {
 
                   // Seasonal alert
                   if (provider.isHighRisk && provider.seasonalAlert.isNotEmpty)
-                    _AlertBanner(message: provider.seasonalAlert),
+                    _AlertBanner(message: provider.seasonalAlert, type: 'seasonal'),
+
+                  // Weather Disease Risk alert
+                  if (provider.hasDiseaseRisk)
+                    _AlertBanner(message: provider.diseaseRiskMessage, type: 'risk'),
 
                   Padding(
                     padding: const EdgeInsets.all(16),
@@ -85,6 +155,7 @@ class HomeScreen extends StatelessWidget {
                               FarmHealthRing(
                                 percentage: provider.stats.healthScore,
                                 size: 100,
+                                showStartPrompt: provider.stats.totalScans == 0,
                               ),
                               const SizedBox(width: 20),
                               Expanded(
@@ -124,7 +195,7 @@ class HomeScreen extends StatelessWidget {
 
                         // Quick action — Scan
                         InkWell(
-                          onTap: () => context.go('/scanner'),
+                          onTap: () => context.push('/scanner'),
                           borderRadius: BorderRadius.circular(14),
                           child: Container(
                             width: double.infinity,
@@ -146,15 +217,15 @@ class HomeScreen extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text('Scan Now',
-                                          style: const TextStyle(
+                                      const Text('Scan Now',
+                                          style: TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16)),
                                       Text('Detect crop diseases instantly',
                                           style: TextStyle(
                                               color: Colors.white
-                                                  .withOpacity(0.8),
+                                                  .withValues(alpha: 0.8),
                                               fontSize: 12)),
                                     ],
                                   ),
@@ -165,7 +236,65 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 20),
+                        const SectionLabel(text: 'Explore'),
+                        const SizedBox(height: 8),
+                        _QuickActionsRow(
+                          actions: [
+                            _QuickAction(
+                              icon: Icons.people_outline,
+                              label: 'Community',
+                              onTap: () => context.push('/community'),
+                            ),
+                            _QuickAction(
+                              icon: Icons.map_outlined,
+                              label: 'Outbreaks',
+                              onTap: () => context.push('/outbreak_map'),
+                            ),
+                            _QuickAction(
+                              icon: Icons.menu_book_outlined,
+                              label: 'Library',
+                              onTap: () => context.push('/disease_library'),
+                            ),
+                            _QuickAction(
+                              icon: Icons.emoji_events_outlined,
+                              label: 'Badges',
+                              onTap: () => context.push('/achievements'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Climate Intelligence Section
+                        const SectionLabel(text: 'Climate Intelligence'),
+                        const SizedBox(height: 12),
+                        if (provider.isWeatherLoading)
+                          const Center(child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: CircularProgressIndicator(),
+                          ))
+                        else if (provider.weather != null)
+                          WeatherForecastWidget(weather: provider.weather!)
+                        else if (provider.weatherError != null)
+                          Text('Weather unavailable: ${provider.weatherError}', 
+                            style: TextStyle(color: colors.diseaseRed, fontSize: 12)),
+                        
                         const SizedBox(height: 16),
+                        if (provider.plantingStatus.isNotEmpty)
+                          PlantingCalendarWidget(
+                            status: provider.plantingStatus,
+                            action: provider.plantingAction,
+                          ),
+                        
+                        if (provider.trend.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          const SectionLabel(text: '7-Day Scan Trend'),
+                          const SizedBox(height: 8),
+                          CropGuardCard(
+                            child: DiseaseTrendChart(trend: provider.trend),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
 
                         // Daily tip
                         if (provider.dailyTip.isNotEmpty)
@@ -200,14 +329,23 @@ class HomeScreen extends StatelessWidget {
                           ),
                         const SizedBox(height: 16),
 
-                        // Recent scans
-                        SectionLabel(text: 'Recent Scans'),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const SectionLabel(text: 'Recent Scans'),
+                            if (provider.recentScans.isNotEmpty)
+                              TextButton(
+                                onPressed: () => context.go('/history'),
+                                child: const Text('See all'),
+                              ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         if (provider.isLoading)
                           const Center(child: CircularProgressIndicator())
                         else if (provider.recentScans.isEmpty)
                           _EmptyState(
-                            onScan: () => context.go('/scanner'),
+                            onScan: () => context.push('/scanner'),
                           )
                         else
                           Column(
@@ -233,24 +371,31 @@ class HomeScreen extends StatelessWidget {
 
 class _AlertBanner extends StatelessWidget {
   final String message;
+  final String type;
 
-  const _AlertBanner({required this.message});
+  const _AlertBanner({required this.message, required this.type});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isRisk = type == 'risk';
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: colors.warning.withOpacity(0.15),
+      color: isRisk ? colors.diseaseRed.withValues(alpha: 0.1) : colors.warning.withValues(alpha: 0.15),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: colors.warning, size: 18),
+          Icon(
+            isRisk ? Icons.notification_important : Icons.warning_amber_rounded, 
+            color: isRisk ? colors.diseaseRed : colors.warning, 
+            size: 18
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(message,
                 style: TextStyle(
-                    color: colors.onBackground, fontSize: 12)),
+                    color: colors.onBackground, fontSize: 12, fontWeight: isRisk ? FontWeight.bold : FontWeight.normal)),
           ),
         ],
       ),
@@ -348,6 +493,67 @@ class _ScanListTile extends StatelessWidget {
             SeverityBadge(severity: result.severity),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right, color: colors.muted, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionsRow extends StatelessWidget {
+  final List<_QuickAction> actions;
+
+  const _QuickActionsRow({required this.actions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: actions
+          .map((a) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: a,
+                ),
+              ))
+          .toList(),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.border),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: colors.primary, size: 22),
+            const SizedBox(height: 6),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colors.onBackground)),
           ],
         ),
       ),

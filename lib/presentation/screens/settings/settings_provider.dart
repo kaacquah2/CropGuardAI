@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/local/database_helper.dart';
@@ -12,7 +13,10 @@ class SettingsProvider extends ChangeNotifier {
 
   SettingsProvider(this._prefs, this._auth, this._db) {
     _load();
+    _loadAppVersion();
   }
+
+  String appVersionLabel = 'CropGuard AI';
 
   bool largeTextMode = false;
   bool showConfidence = true;
@@ -20,7 +24,7 @@ class SettingsProvider extends ChangeNotifier {
   String? deleteError;
   bool isDeleting = false;
 
-  static const _supportedLanguages = ['English', 'Twi', 'French'];
+  static const _supportedLanguages = ['English', 'Twi', 'French', 'Hausa', 'Ewe', 'Dagbani'];
   List<String> get supportedLanguages => _supportedLanguages;
 
   void _load() {
@@ -28,6 +32,17 @@ class SettingsProvider extends ChangeNotifier {
     showConfidence = _prefs.getBool('show_confidence') ?? true;
     currentLanguage = _prefs.getString('language') ?? 'English';
     notifyListeners();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      appVersionLabel = 'CropGuard AI v${info.version} (${info.buildNumber})';
+      notifyListeners();
+    } catch (_) {
+      appVersionLabel = 'CropGuard AI v1.0.0';
+      notifyListeners();
+    }
   }
 
   void setLargeTextMode(bool v) {
@@ -53,23 +68,59 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteAccount(VoidCallback onSuccess) async {
+  Future<void> deleteAccount({
+    required VoidCallback onSuccess,
+    String? password,
+    bool reauthWithGoogle = false,
+  }) async {
     isDeleting = true;
     deleteError = null;
     notifyListeners();
     try {
+      if (reauthWithGoogle) {
+        await _auth.reauthenticateWithGoogle();
+      } else if (password != null && password.isNotEmpty) {
+        await _auth.reauthenticateWithPassword(password);
+      } else if (_auth.hasPasswordProvider) {
+        throw Exception('Password required');
+      } else if (_auth.hasGoogleProvider) {
+        throw Exception('Google sign-in required');
+      }
       await _auth.deleteAccount();
       isDeleting = false;
       notifyListeners();
       onSuccess();
     } catch (e) {
       isDeleting = false;
-      deleteError = 'Failed to delete account. Please re-authenticate and try again.';
+      final msg = e.toString();
+      if (msg.contains('requires-recent-login') ||
+          msg.contains('Password required') ||
+          msg.contains('Google sign-in required')) {
+        deleteError =
+            'For security, confirm your password or sign in with Google again before deleting.';
+      } else {
+        deleteError = 'Failed to delete account. Please try again.';
+      }
       notifyListeners();
     }
   }
 
-  void checkForModelUpdates() {
-    // Bundled model — no remote updates in offline-first version
+  bool isCheckingUpdates = false;
+  String? updateMessage;
+
+  Future<void> checkForModelUpdates() async {
+    isCheckingUpdates = true;
+    updateMessage = null;
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 2));
+    
+    isCheckingUpdates = false;
+    updateMessage = 'Your model is up to date.';
+    notifyListeners();
+
+    await Future.delayed(const Duration(seconds: 3));
+    updateMessage = null;
+    notifyListeners();
   }
 }

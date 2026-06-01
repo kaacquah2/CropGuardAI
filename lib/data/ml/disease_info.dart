@@ -1,5 +1,6 @@
 /// Dart equivalent of DiseaseInfo.kt + DiseaseDatabase object.
 /// Contains metadata for every disease class the ML model can output.
+library;
 
 class DiseaseInfoEntry {
   final String label;
@@ -22,9 +23,16 @@ class DiseaseInfoEntry {
 }
 
 class DiseaseDatabase {
-  DiseaseDatabase._();
+  static Map<String, DiseaseInfoEntry>? _entriesMap;
 
-  static const List<DiseaseInfoEntry> _entries = [
+  static Map<String, DiseaseInfoEntry> get _entries {
+    _entriesMap ??= {
+      for (final e in _rawEntries) e.label: e
+    };
+    return _entriesMap!;
+  }
+
+  static const List<DiseaseInfoEntry> _rawEntries = [
     // ─── Apple ────────────────────────────────────────────────────────────
     DiseaseInfoEntry(
       label: 'Apple___Apple_scab',
@@ -746,6 +754,20 @@ class DiseaseDatabase {
       ],
     ),
     DiseaseInfoEntry(
+      label: 'Groundnut___Late_Leaf_Spot',
+      displayName: 'Groundnut Late Leaf Spot',
+      cropType: 'Groundnut',
+      cause: 'Fungal infection by Cercosporidium personatum',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Apply tebuconazole or chlorothalonil.',
+        'Avoid dense plant populations.',
+        'Use tolerant varieties.',
+        'Ensure well-drained, sandy loam soil.',
+      ],
+    ),
+    DiseaseInfoEntry(
       label: 'Groundnut___Healthy',
       displayName: 'Healthy Groundnut',
       cropType: 'Groundnut',
@@ -757,12 +779,516 @@ class DiseaseDatabase {
         'Maintain soil pH between 5.5 and 7.0.',
       ],
     ),
+    // ─── Cashew ───────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Cashew___Anthracnose',
+      displayName: 'Cashew Anthracnose',
+      cropType: 'Cashew',
+      cause: 'Colletotrichum gloeosporioides complex',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Prune dead/diseased twigs and burn them (MoFA/CRIG).',
+        'Apply Mancozeb-based fungicide every 7-10 days during flowering.',
+        'Maintain proper tree spacing for aeration.',
+        'Collect and destroy fallen infected fruits.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cashew___Red_Rust',
+      displayName: 'Cashew Red Rust',
+      cropType: 'Cashew',
+      cause: 'Algal pathogen Cephaleuros virescens',
+      severity: 'early',
+      isHealthy: false,
+      treatments: [
+        'Improve orchard drainage and aeration.',
+        'Prune overcrowded branches to reduce humidity.',
+        'Apply copper-based fungicides if infestation is severe.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cashew___Gummosis',
+      displayName: 'Cashew Gummosis (Die-back)',
+      cropType: 'Cashew',
+      cause: 'Lasiodiplodia theobromae fungus',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Scrape off gum and apply copper fungicide paste to wounds.',
+        'Prune infected branches 10cm below the visible infection.',
+        'Sterilize pruning tools between trees with bleach.',
+        'Improve soil drainage and avoid mechanical injury to trunk.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cashew___Leaf_Miner',
+      displayName: 'Cashew Leaf Miner',
+      cropType: 'Cashew',
+      cause: 'Larvae of Eteoryctis gemoniella',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Monitor young leaves early in the season.',
+        'Manually remove and destroy heavily infested leaves.',
+        'Encourage natural enemies like parasitic wasps.',
+        'Apply Alpha-cypermethrin if infestation exceeds threshold.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cashew___healthy',
+      displayName: 'Healthy Cashew',
+      cropType: 'Cashew',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Perform annual pruning in the dry season.',
+        'Apply balanced fertilizer based on MoFA recommendations.',
+      ],
+    ),
+    // ─── Cocoa ────────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Cocoa___Black_Pod_Rot',
+      displayName: 'Cocoa Black Pod',
+      cropType: 'Cocoa',
+      cause: 'Phytophthora palmivora/megakarya',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Harvest monthly and bury/burn all infected pods (CRIG).',
+        'Prune trees in March/April to improve aeration.',
+        'Apply COCOBOD-approved copper fungicides 6-8 times a year.',
+        'Maintain 5-8 shade trees per acre.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cocoa___Swollen_Shoot_Virus',
+      displayName: 'Cocoa Swollen Shoot',
+      cropType: 'Cocoa',
+      cause: 'CSSV transmitted by mealybugs',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Remove and burn infected trees and surrounding contacts (CRIG).',
+        'Do not move seedlings from infected areas.',
+        'Sanitize tools with 10% bleach between farms.',
+        'Report outbreaks to the nearest COCOBOD office immediately.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cocoa___Mirid_Bugs',
+      displayName: 'Cocoa Mirids (Capsids)',
+      cropType: 'Cocoa',
+      cause: 'Insect pest Sahlbergella singularis',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Maintain a continuous canopy to shade out mirids (CRIG).',
+        'Apply approved insecticides from August to December.',
+        'Restore broken canopies with plantain or fast-growing shade.',
+        'Spot spray localized infestations early.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cocoa___healthy',
+      displayName: 'Healthy Cocoa',
+      cropType: 'Cocoa',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Follow the CRIG pruning and weeding schedule.',
+        'Monitor regularly for early signs of Black Pod.',
+      ],
+    ),
+    // ─── Yam ──────────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Yam___Anthracnose',
+      displayName: 'Yam Anthracnose',
+      cropType: 'Yam',
+      cause: 'Colletotrichum gloeosporioides fungus',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Use only disease-free seed yams (MoFA).',
+        'Practice at least a 3-year crop rotation with maize.',
+        'Stake plants early and use wider spacing.',
+        'Dip seed yams in fungicide before planting.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Yam___Mosaic_Virus',
+      displayName: 'Yam Mosaic Virus',
+      cropType: 'Yam',
+      cause: 'YMV transmitted by aphids',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Use Positive Selection: only save seeds from healthy plants.',
+        'Rogue out and burn infected plants immediately (MoFA).',
+        'Control aphid vectors with Alpha-cypermethrin if necessary.',
+        'Keep field free of weeds that host aphids.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Yam___Tuber_Rot',
+      displayName: 'Yam Tuber Rot',
+      cropType: 'Yam',
+      cause: 'Fungal/Bacterial complex in soil',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Avoid waterlogged soils; plant on high mounds (MoFA).',
+        'Handle tubers carefully during harvest to avoid injury.',
+        'Store tubers in well-ventilated traditional barns.',
+        'Sort and remove rotting tubers immediately.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Yam___healthy',
+      displayName: 'Healthy Yam',
+      cropType: 'Yam',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Monitor for mosaic symptoms during the vegetative stage.',
+        'Ensure mounds are well-constructed and mulched.',
+      ],
+    ),
+    // ─── Plantain ─────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Plantain___Black_Sigatoka',
+      displayName: 'Plantain Black Sigatoka',
+      cropType: 'Plantain',
+      cause: 'Mycosphaerella fijiensis fungus',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Remove diseased leaf portions every 15-30 days (MoFA).',
+        'Keep at least 6-8 healthy leaves at bunching.',
+        'Rotate fungicides to avoid resistance.',
+        'Ensure good drainage and plant nutrition (K, Ca).',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Plantain___Fusarium_Wilt',
+      displayName: 'Plantain Fusarium Wilt',
+      cropType: 'Plantain',
+      cause: 'Fusarium oxysporum (soil-borne)',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Use only certified, disease-free suckers (PPRSD).',
+        'Strictly isolate and destroy infected plants; do not move soil.',
+        'Disinfect all tools and footwear before entering the farm.',
+        'Report suspected TR4 cases to MoFA immediately.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Plantain___Bunchy_Top',
+      displayName: 'Plantain Bunchy Top',
+      cropType: 'Plantain',
+      cause: 'BBTV virus (not yet in Ghana)',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Prevention: Do not move suckers from outside Ghana.',
+        'Report Bunched, narrow, erect leaves to MoFA immediately.',
+        'Eradicate infected mats and control aphid vectors.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Plantain___healthy',
+      displayName: 'Healthy Plantain',
+      cropType: 'Plantain',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Maintain proper spacing and weed control.',
+        'Apply mulch and organic manure regularly.',
+      ],
+    ),
+    // ─── Pepper ───────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Pepper_Chilli___Leaf_Curl',
+      displayName: 'Chilli Leaf Curl',
+      cropType: 'Pepper',
+      cause: 'Virus transmitted by Whiteflies',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Rogue and burn early-infected plants immediately (MoFA).',
+        'Plant barrier crops like maize around the pepper field.',
+        'Control whiteflies with yellow sticky traps and neem oil.',
+        'Protect nurseries with nylon nets.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Pepper_Chilli___Cercospora_Leaf_Spot',
+      displayName: 'Pepper Cercospora Spot',
+      cropType: 'Pepper',
+      cause: 'Cercospora capsici fungus',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Practice a 3-year rotation with non-host crops (MoFA).',
+        'Apply Mancozeb or copper-based fungicides when symptoms appear.',
+        'Destroy infected plant debris after harvest.',
+        'Treat seeds with hot water (52C for 30 mins).',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Pepper_Chilli___Anthracnose',
+      displayName: 'Pepper Anthracnose',
+      cropType: 'Pepper',
+      cause: 'Colletotrichum species',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Use only disease-free, certified seeds (MoFA).',
+        'Apply Mancozeb (75g/15L) at first sign of fruit rot.',
+        'Ensure good field drainage and weed control.',
+        'Do not save seeds from infected fields.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Pepper_Chilli___healthy',
+      displayName: 'Healthy Pepper',
+      cropType: 'Pepper',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Maintain consistent irrigation to avoid blossom end rot.',
+        'Scout weekly for whiteflies and aphids.',
+      ],
+    ),
+    // ─── Cowpea ───────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Cowpea___Mosaic_Virus',
+      displayName: 'Cowpea Mosaic Virus',
+      cropType: 'Cowpea',
+      cause: 'CPMV transmitted by aphids',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Uproot and burn infected plants (MoFA).',
+        'Control aphid vectors with Cypermethrin or neem oil.',
+        'Use only clean, certified, disease-free seeds.',
+        'Avoid planting near infected fields.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cowpea___Aphids',
+      displayName: 'Cowpea Aphids',
+      cropType: 'Cowpea',
+      cause: 'Insect pest Aphis craccivora',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Plant early and use close spacing (60x20cm) (MoFA).',
+        'Monitor fields starting 2 weeks after planting.',
+        'Apply Lambda-cyhalothrin if infestation levels are high.',
+        'Hand-pick and crush aphids at low infestation levels.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cowpea___Bacterial_Blight',
+      displayName: 'Cowpea Bacterial Blight',
+      cropType: 'Cowpea',
+      cause: 'Seed-borne bacterial pathogen',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Intercrop cowpea with maize or cassava to reduce spread.',
+        'Use high-quality, certified seeds (MoFA).',
+        'Remove and destroy diseased crop residues.',
+        'Avoid planting on the same land for 2 consecutive seasons.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Cowpea___healthy',
+      displayName: 'Healthy Cowpea',
+      cropType: 'Cowpea',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Apply phosphorus-rich fertilizer for better nodulation.',
+        'Maintain regular weeding during the first 4 weeks.',
+      ],
+    ),
+    // ─── Sorghum ──────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Sorghum___Downy_Mildew',
+      displayName: 'Sorghum Downy Mildew',
+      cropType: 'Sorghum',
+      cause: 'Soil-borne oomycete pathogen',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Uproot and destroy infected seedlings immediately (MoFA).',
+        'Practice a 2-year rotation with non-cereal crops.',
+        'Treat seeds with metalaxyl-based fungicides.',
+        'Plant resistant varieties recommended by SARI.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Sorghum___Ergot',
+      displayName: 'Sorghum Ergot',
+      cropType: 'Sorghum',
+      cause: 'Fungal infection of the flower',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Use salt solution test (10% salt) to remove infected seeds.',
+        'Avoid late planting to miss high humidity periods (MoFA).',
+        'Remove infected heads from the field and burn them.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Sorghum___Smut',
+      displayName: 'Sorghum Smut',
+      cropType: 'Sorghum',
+      cause: 'Fungal spores in soil or seed',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Treat seeds with systemic fungicides before sowing (MoFA).',
+        'Uproot and burn affected plants away from the field.',
+        'Practice deep summer ploughing to expose spores.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Sorghum___healthy',
+      displayName: 'Healthy Sorghum',
+      cropType: 'Sorghum',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Ensure proper soil fertility with organic manure.',
+        'Monitor for fall armyworm during the early growth stage.',
+      ],
+    ),
+    // ─── Oil Palm ─────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Oil_Palm___Ganoderma_Rot',
+      displayName: 'Oil Palm Ganoderma Rot',
+      cropType: 'Oil Palm',
+      cause: 'Basal/Upper Stem Rot fungus',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Destroy infected palms, including roots and stumps (MoFA).',
+        'Shred and expose diseased tissue to sunlight to kill fungus.',
+        'Dig isolation trenches around infected palms.',
+        'Mound soil around palms with early-stage infection.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Oil_Palm___Anthracnose',
+      displayName: 'Oil Palm Anthracnose',
+      cropType: 'Oil Palm',
+      cause: 'Fungal infection (nursery disease)',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Increase seedling spacing to improve airflow (MoFA).',
+        'Avoid overhead irrigation; use drip or root-zone watering.',
+        'Apply Mancozeb or Captan (200g/100L) if symptoms appear.',
+        'Avoid copper-based fungicides (causes leaf scorching).',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Oil_Palm___healthy',
+      displayName: 'Healthy Oil Palm',
+      cropType: 'Oil Palm',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Follow the OPRI recommended fertilization schedule.',
+        'Maintain a clean circle around the base of the palm.',
+      ],
+    ),
+    // ─── Millet ───────────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Millet___Downy_Mildew',
+      displayName: 'Millet Downy Mildew',
+      cropType: 'Millet',
+      cause: 'Sclerospora graminicola fungus',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Use resistant varieties from SARI (MoFA).',
+        'Rotate millet with legumes for 2 years.',
+        'Uproot and destroy infected plants outside the field.',
+        'Avoid late sowing in high-risk areas.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Millet___Smut',
+      displayName: 'Millet Smut',
+      cropType: 'Millet',
+      cause: 'Tolyposporium penicillariae fungus',
+      severity: 'moderate',
+      isHealthy: false,
+      treatments: [
+        'Remove and burn infected ear heads early (MoFA).',
+        'Practice deep ploughing after harvest.',
+        'Treat seeds with approved fungicides before planting.',
+      ],
+    ),
+    DiseaseInfoEntry(
+      label: 'Millet___healthy',
+      displayName: 'Healthy Millet',
+      cropType: 'Millet',
+      cause: '',
+      severity: 'healthy',
+      isHealthy: true,
+      treatments: [
+        'Ensure adequate thinning for better plant vigor.',
+        'Monitor for birds and pests during grain filling.',
+      ],
+    ),
+    // ─── Tomato Update ───────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Tomato___Ralstonia_Wilt',
+      displayName: 'Tomato Bacterial Wilt',
+      cropType: 'Tomato',
+      cause: 'Ralstonia solanacearum bacteria',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Rogue and burn infected plants and surrounding soil (MoFA).',
+        'Rotate for 4-6 years with non-solanaceous crops (maize, millet).',
+        'Sterilize all tools with fire or bleach (MoFA).',
+        'Solarize nursery beds with polythene for one week.',
+      ],
+    ),
+    // ─── Maize Update ────────────────────────────────────────────────────
+    DiseaseInfoEntry(
+      label: 'Corn_(maize)___Larger_Grain_Borer',
+      displayName: 'Maize Larger Grain Borer',
+      cropType: 'Maize',
+      cause: 'Storage pest Prostephanus truncatus',
+      severity: 'severe',
+      isHealthy: false,
+      treatments: [
+        'Harvest cobs early as soon as mature (MoFA).',
+        'Ensure maize is thoroughly dried before storage.',
+        'Use hermetic bags or metal silos for storage.',
+        'Clean storage structures and seal all cracks.',
+      ],
+    ),
   ];
 
   static DiseaseInfoEntry getInfo(String label) {
-    return _entries.firstWhere(
-      (e) => e.label == label,
-      orElse: () => DiseaseInfoEntry(
+    return _entries[label] ?? DiseaseInfoEntry(
         label: label,
         displayName: label.replaceAll('___', ' ').replaceAll('_', ' '),
         cropType: 'Unknown',
@@ -770,18 +1296,17 @@ class DiseaseDatabase {
         severity: 'unclear',
         isHealthy: false,
         treatments: ['Consult an agricultural extension officer.'],
-      ),
-    );
+      );
   }
 
   static List<String> getAllLabels() {
-    return _entries.map((e) => e.label).toList();
+    return _entries.keys.toList();
   }
 
-  static List<DiseaseInfoEntry> getAllDiseases() => List.unmodifiable(_entries);
+  static List<DiseaseInfoEntry> getAllDiseases() => List.unmodifiable(_entries.values);
 
   static List<DiseaseInfoEntry> getByCategory(String cropType) {
-    return _entries
+    return _entries.values
         .where((e) =>
             e.cropType.toLowerCase() == cropType.toLowerCase() && !e.isHealthy)
         .toList();

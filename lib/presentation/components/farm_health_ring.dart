@@ -8,12 +8,14 @@ class FarmHealthRing extends StatefulWidget {
   final double percentage; // 0.0 – 1.0
   final double size;
   final double strokeWidth;
+  final bool showStartPrompt;
 
   const FarmHealthRing({
     super.key,
     required this.percentage,
     this.size = 100,
     this.strokeWidth = 10,
+    this.showStartPrompt = false,
   });
 
   @override
@@ -86,14 +88,28 @@ class _FarmHealthRingState extends State<FarmHealthRing>
                   strokeWidth: widget.strokeWidth,
                 ),
               ),
-              Text(
-                '${(value * 100).toInt()}%',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: colors.onBackground,
+              widget.showStartPrompt && widget.percentage == 0
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.camera_alt_outlined,
+                            color: colors.primary, size: 22),
+                        const SizedBox(height: 4),
+                        Text('Scan',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: colors.muted)),
+                      ],
+                    )
+                  : Text(
+                      '${(value * 100).toInt()}%',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: colors.onBackground,
+                          ),
                     ),
-              ),
             ],
           ),
         );
@@ -124,7 +140,7 @@ class _RingPainter extends CustomPainter {
       2 * math.pi,
       false,
       Paint()
-        ..color = Colors.grey.withOpacity(0.3)
+        ..color = Colors.grey.withValues(alpha: 0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round,

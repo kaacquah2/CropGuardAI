@@ -3,7 +3,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/utils/ghana_seasonal_tip.dart';
 import '../../../domain/models/detection_result.dart';
+import '../../../domain/repositories/i_auth_repository.dart';
 import '../../../domain/usecases/home/get_home_data_usecase.dart';
+import '../../../domain/usecases/weather/get_weather_usecase.dart';
+import '../../../domain/models/weather_forecast.dart';
+import '../../../core/utils/agri_weather_utils.dart';
 
 class FarmStats {
   final int totalScans;
@@ -23,9 +27,10 @@ class FarmStats {
 /// Refactored HomeProvider using Clean Architecture
 class HomeProvider extends ChangeNotifier {
   final GetHomeDataUseCase _getHomeDataUseCase;
-  final SharedPreferences _prefs;
+  final GetWeatherUseCase _getWeatherUseCase;
+  final IAuthRepository _authRepository;
 
-  HomeProvider(this._getHomeDataUseCase, this._prefs) {
+  HomeProvider(this._getHomeDataUseCase, this._getWeatherUseCase, this._authRepository, SharedPreferences prefs) {
     load();
   }
 
@@ -38,11 +43,21 @@ class HomeProvider extends ChangeNotifier {
   String dailyTip = '';
   List<Map<String, dynamic>> trend = [];
 
+  // Weather data
+  WeatherForecast? weather;
+  bool isWeatherLoading = false;
+  String? weatherError;
+  bool hasDiseaseRisk = false;
+  String diseaseRiskMessage = '';
+  String plantingStatus = '';
+  String plantingAction = '';
+
   Future<void> load() async {
     isLoading = true;
     notifyListeners();
 
-    final result = await _getHomeDataUseCase();
+    final userId = _authRepository.currentUser?.id;
+    final result = await _getHomeDataUseCase(userId: userId);
     
     if (result.isSuccess) {
       final data = result.data!;
@@ -66,8 +81,42 @@ class HomeProvider extends ChangeNotifier {
 
     isLoading = false;
     notifyListeners();
+
+    // Fetch weather (Kumasi defaults)
+    _fetchWeather(6.6666, -1.6163);
   }
 
-  Future<void> refresh() => load();
-}
+  Future<void> _fetchWeather(double lat, double lon) async {
+    isWeatherLoading = true;
+    weatherError = null;
+    notifyListeners();
 
+    try {
+      weather = await _getWeatherUseCase.execute(latitude: lat, longitude: lon);
+      
+      // Calculate risks
+      if (weather != null && weather!.daily.isNotEmpty) {
+        final today = weather!.daily.first;
+        hasDiseaseRisk = AgriWeatherUtils.isFungalRisk(today);
+        if (hasDiseaseRisk) {
+          diseaseRiskMessage = "Conditions favor late blight. Check your crops!";
+        }
+      }
+
+      // Ghana planting guide (assume South for Kumasi)
+      final advice = AgriWeatherUtils.getPlantingAdvice('South');
+      plantingStatus = advice['status'] ?? '';
+      plantingAction = advice['action'] ?? '';
+
+    } catch (e) {
+      weatherError = e.toString();
+    } finally {
+      isWeatherLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refresh() async {
+    await load();
+  }
+}

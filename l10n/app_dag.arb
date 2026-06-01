@@ -1,0 +1,20 @@
+{
+  "@@locale": "dag",
+  "appTitle": "CropGuard AI",
+  "home": "Yili",
+  "scan": "Scan",
+  "history": "Taarihi",
+  "settings": "Zali",
+  "startScanning": "Piini scan",
+  "recentScans": "Scans kpaŋmaŋa",
+  "noRecentScans": "Bɛ bi nye scans shɛli",
+  "farmHealth": "Puu Alaafee",
+  "login": "Kpɛna",
+  "register": "Sabi yuli",
+  "logout": "Yina",
+  "email": "Email",
+  "password": "Password",
+  "forgotPassword": "A tamla a password?",
+  "guestLogin": "Kpɛna ka nyɛ saamba",
+  "more": "Pahimi"
+}

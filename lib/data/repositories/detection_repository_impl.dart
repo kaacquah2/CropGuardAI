@@ -41,9 +41,9 @@ class DetectionRepositoryImpl implements IDetectionRepository {
   }
 
   @override
-  Future<Result<List<DetectionResult>>> getRecentDetections({int limit = 5}) async {
+  Future<Result<List<DetectionResult>>> getRecentDetections({String? userId, int limit = 5}) async {
     try {
-      final detections = await _dbHelper.getRecentDetections(limit: limit);
+      final detections = await _dbHelper.getRecentDetections(userId: userId, limit: limit);
       return Result.success(detections);
     } catch (e) {
       return Result.error(CacheFailure(e.toString()));

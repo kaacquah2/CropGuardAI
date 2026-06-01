@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,7 +36,10 @@ class _SplashScreenState extends State<SplashScreen>
     final onboardingDone =
         prefs.getBool('onboarding_complete') ?? false;
     if (!mounted) return;
-    if (onboardingDone) {
+    
+    if (FirebaseAuth.instance.currentUser != null) {
+      context.go('/home');
+    } else if (onboardingDone) {
       context.go('/login');
     } else {
       context.go('/onboarding');
@@ -63,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(30),
                 ),
                 child: const Icon(Icons.eco, size: 72, color: Colors.white),
@@ -80,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen>
               Text(
                 'Smart crop disease detection',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
               ),
               const SizedBox(height: 48),
@@ -88,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
                 width: 32,
                 height: 32,
                 child: CircularProgressIndicator(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   strokeWidth: 2,
                 ),
               ),

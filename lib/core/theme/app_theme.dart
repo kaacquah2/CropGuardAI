@@ -10,7 +10,6 @@ class AppTheme {
     final base = isDark ? ThemeData.dark() : ThemeData.light();
 
     return base.copyWith(
-      useMaterial3: true,
       colorScheme: ColorScheme(
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: colors.primary,
@@ -19,11 +18,9 @@ class AppTheme {
         onSecondary: colors.onBackground,
         error: colors.error,
         onError: Colors.white,
-        background: colors.background,
-        onBackground: colors.onBackground,
         surface: colors.surface,
         onSurface: colors.onSurface,
-        surfaceVariant: colors.surfaceVariant,
+        surfaceContainerHighest: colors.surfaceVariant,
         outline: colors.border,
       ),
       scaffoldBackgroundColor: colors.background,
@@ -60,14 +57,14 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.surface,
         indicatorColor: colors.healthyBg,
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return IconThemeData(color: colors.primary);
           }
           return IconThemeData(color: colors.onBackgroundSecondary);
         }),
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return TextStyle(
               color: colors.primary,
               fontSize: 12,
@@ -100,21 +97,21 @@ class AppTheme {
         labelStyle: TextStyle(color: colors.onBackgroundSecondary),
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) return colors.primary;
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return colors.primary;
           return colors.muted;
         }),
-        trackColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) return colors.healthyBg;
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return colors.healthyBg;
           return colors.border;
         }),
       ),
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) return colors.primaryLight;
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return colors.primaryLight;
           return null;
         }),
-        checkColor: MaterialStateProperty.all(Colors.white),
+        checkColor: WidgetStateProperty.all(Colors.white),
         side: BorderSide(color: colors.border),
       ),
       extensions: [AppColorsThemeExtension(colors: colors)],

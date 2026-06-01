@@ -1,19 +1,21 @@
+import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:camera/camera.dart';
-
-import '../../../domain/usecases/scanner/scan_crop_usecase.dart';
-import '../../../domain/repositories/i_auth_repository.dart';
-import '../../../core/utils/image_quality_analyzer.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
+
+import '../../../domain/models/detection_result.dart';
+import '../../../domain/repositories/i_auth_repository.dart';
+import '../../../domain/usecases/scanner/scan_crop_usecase.dart';
+import '../../../core/utils/image_quality_analyzer.dart';
 
 enum ScanMode { camera, gallery }
 
 class ImageQuality {
-  final double focusScore; // 0–1
-  final double brightnessScore; // 0–1
+  final double focusScore;
+  final double brightnessScore;
   final bool acceptable;
 
   const ImageQuality({
@@ -23,7 +25,6 @@ class ImageQuality {
   });
 }
 
-/// Refactored ScannerProvider using Clean Architecture
 class ScannerProvider extends ChangeNotifier {
   final ScanCropUseCase _scanCropUseCase;
   final IAuthRepository _authRepository;
@@ -38,31 +39,75 @@ class ScannerProvider extends ChangeNotifier {
   String? capturedImagePath;
   ScanMode mode = ScanMode.camera;
   ImageQuality quality = const ImageQuality();
+  ScanPreviewQuality? previewQuality;
   String? errorMessage;
-
-  // Batch scan
   List<String> batchImagePaths = [];
   bool batchMode = false;
+
+  Timer? _analysisTimer;
+  CameraImage? _latestFrame;
 
   Future<void> initCamera() async {
     try {
       cameras = await availableCameras();
       if (cameras.isEmpty) return;
+
       final cam = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
+
       cameraController = CameraController(
         cam,
         ResolutionPreset.high,
         enableAudio: false,
+        imageFormatGroup:
+            defaultTargetPlatform == TargetPlatform.iOS
+                ? ImageFormatGroup.bgra8888
+                : ImageFormatGroup.yuv420,
       );
       await cameraController!.initialize();
       cameraInitialized = true;
       notifyListeners();
+      await _startFrameAnalysis();
     } catch (e) {
       errorMessage = 'Camera unavailable: $e';
       notifyListeners();
+    }
+  }
+
+  Future<void> _startFrameAnalysis() async {
+    if (cameraController == null || !cameraInitialized) return;
+    if (_analysisTimer != null) return;
+
+    try {
+      await cameraController!.startImageStream((image) {
+        _latestFrame = image;
+      });
+    } catch (_) {
+      return;
+    }
+
+    _analysisTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      final frame = _latestFrame;
+      if (frame == null) return;
+      previewQuality = ImageQualityAnalyzer.previewFromCameraImage(frame);
+      notifyListeners();
+    });
+  }
+
+  Future<void> _stopFrameAnalysis() async {
+    _analysisTimer?.cancel();
+    _analysisTimer = null;
+    _latestFrame = null;
+
+    final controller = cameraController;
+    if (controller == null || !controller.value.isStreamingImages) return;
+
+    try {
+      await controller.stopImageStream();
+    } catch (_) {
+      // If the driver already stopped the stream, continue.
     }
   }
 
@@ -70,14 +115,19 @@ class ScannerProvider extends ChangeNotifier {
     if (cameraController == null || !cameraInitialized) return;
     torchOn = !torchOn;
     await cameraController!.setFlashMode(
-        torchOn ? FlashMode.torch : FlashMode.off);
+      torchOn ? FlashMode.torch : FlashMode.off,
+    );
     notifyListeners();
   }
 
   Future<String?> captureImage() async {
     if (cameraController == null || !cameraInitialized) return null;
+
+    final controller = cameraController!;
+    await _stopFrameAnalysis();
+
     try {
-      final file = await cameraController!.takePicture();
+      final file = await controller.takePicture();
       capturedImagePath = file.path;
       notifyListeners();
       return file.path;
@@ -85,14 +135,19 @@ class ScannerProvider extends ChangeNotifier {
       errorMessage = 'Failed to capture image.';
       notifyListeners();
       return null;
+    } finally {
+      await _startFrameAnalysis();
     }
   }
 
   Future<String?> pickFromGallery() async {
     final picker = ImagePicker();
-    final file =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
     if (file == null) return null;
+
     capturedImagePath = file.path;
     notifyListeners();
     return file.path;
@@ -101,19 +156,70 @@ class ScannerProvider extends ChangeNotifier {
   Future<void> addToBatch() async {
     final path = await pickFromGallery();
     if (path != null) {
-      batchImagePaths.add(path);
-      notifyListeners();
+      addCapturedToBatch(path);
     }
+  }
+
+  void addCapturedToBatch(String path) {
+    batchImagePaths.add(path);
+    notifyListeners();
   }
 
   void setBatchMode(bool v) {
     batchMode = v;
     batchImagePaths.clear();
     notifyListeners();
+
+    if (v) {
+      unawaited(_startFrameAnalysis());
+    }
   }
 
-  /// Classify a single image and save to DB; returns saved detection ID.
-  Future<int?> analyseAndSave(String imagePath) async {
+  Future<List<DetectionResult>> analyseBatch() async {
+    if (batchImagePaths.isEmpty) return [];
+
+    isAnalysing = true;
+    errorMessage = null;
+    notifyListeners();
+
+    final userId = _authRepository.currentUser?.id ?? 'guest';
+    final results = <DetectionResult>[];
+    var failures = 0;
+
+    for (final path in List<String>.from(batchImagePaths)) {
+      final result = await _scanCropUseCase(path, userId);
+      if (result.isSuccess && result.data != null) {
+        results.add(result.data!);
+      } else {
+        failures++;
+      }
+    }
+
+    isAnalysing = false;
+    if (results.isEmpty) {
+      errorMessage = failures > 0
+          ? 'Batch analysis failed for all images.'
+          : 'No images to analyse.';
+    } else if (failures > 0) {
+      errorMessage =
+          'Analysed ${results.length} of ${batchImagePaths.length} images.';
+    }
+    batchImagePaths.clear();
+    batchMode = false;
+    notifyListeners();
+    return results;
+  }
+
+  Future<void> releaseCamera() async {
+    await _stopFrameAnalysis();
+    await cameraController?.dispose();
+    cameraController = null;
+    cameraInitialized = false;
+    torchOn = false;
+    notifyListeners();
+  }
+
+  Future<DetectionResult?> analyseAndSave(String imagePath) async {
     isAnalysing = true;
     errorMessage = null;
     notifyListeners();
@@ -121,7 +227,7 @@ class ScannerProvider extends ChangeNotifier {
     try {
       final bytes = await File(imagePath).readAsBytes();
       final image = img.decodeImage(bytes);
-      
+
       if (image != null) {
         final qualityCheck = ImageQualityAnalyzer.analyze(image);
         if (!qualityCheck.isAcceptable) {
@@ -134,7 +240,7 @@ class ScannerProvider extends ChangeNotifier {
 
       final userId = _authRepository.currentUser?.id ?? 'guest';
       final result = await _scanCropUseCase(imagePath, userId);
-      
+
       if (result.isError) {
         errorMessage = result.failure!.message;
         isAnalysing = false;
@@ -144,7 +250,7 @@ class ScannerProvider extends ChangeNotifier {
 
       isAnalysing = false;
       notifyListeners();
-      return result.data?.id;
+      return result.data;
     } catch (e) {
       errorMessage = 'Analysis failed: $e';
       isAnalysing = false;
@@ -170,8 +276,8 @@ class ScannerProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _analysisTimer?.cancel();
     cameraController?.dispose();
     super.dispose();
   }
 }
-

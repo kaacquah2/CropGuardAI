@@ -68,6 +68,25 @@ class FirestoreService {
     return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
+  // ─── Treatment Tracking ───────────────────────────────────────────────
+  Stream<List<Map<String, dynamic>>> treatmentsStream(String userId) {
+    return _db
+        .collection('treatments')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => {'id': doc.id, ...doc.data()})
+            .toList());
+  }
+
+  Future<void> addTreatment(Map<String, dynamic> data) async {
+    await _db.collection('treatments').add(data);
+  }
+
+  Future<void> updateTreatment(String id, Map<String, dynamic> data) async {
+    await _db.collection('treatments').doc(id).update(data);
+  }
+
   // ─── Feedback ─────────────────────────────────────────────────────────
   Future<void> submitFeedback({
     required String userId,
@@ -81,6 +100,22 @@ class FirestoreService {
       'originalLabel': originalLabel,
       'correctedLabel': correctedLabel,
       'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> submitCropNotFound({
+    required String userId,
+    required String suggestedCrop,
+    required String observedSymptoms,
+    required String imagePath,
+  }) async {
+    await _db.collection('missing_crops').add({
+      'userId': userId,
+      'suggestedCrop': suggestedCrop,
+      'observedSymptoms': observedSymptoms,
+      'imagePath': imagePath,
+      'timestamp': FieldValue.serverTimestamp(),
+      'status': 'review_pending',
     });
   }
 }

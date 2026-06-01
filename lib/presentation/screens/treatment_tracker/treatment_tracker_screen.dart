@@ -1,164 +1,204 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../components/cropguard_card.dart';
-import '../../components/primary_button.dart';
+import 'treatment_tracker_provider.dart';
 
-class _Treatment {
-  final String crop;
-  final String disease;
-  final String step;
-  final bool completed;
-  final String dueDate;
-
-  const _Treatment({
-    required this.crop,
-    required this.disease,
-    required this.step,
-    this.completed = false,
-    required this.dueDate,
-  });
-}
-
-/// Equivalent of TreatmentTrackerScreen.kt
-class TreatmentTrackerScreen extends StatefulWidget {
+class TreatmentTrackerScreen extends StatelessWidget {
   const TreatmentTrackerScreen({super.key});
-
-  @override
-  State<TreatmentTrackerScreen> createState() =>
-      _TreatmentTrackerScreenState();
-}
-
-class _TreatmentTrackerScreenState extends State<TreatmentTrackerScreen> {
-  final List<_Treatment> _plans = [
-    const _Treatment(
-        crop: 'Tomato',
-        disease: 'Late Blight',
-        step: 'Apply metalaxyl fungicide to all plants',
-        dueDate: 'Today',
-        completed: false),
-    const _Treatment(
-        crop: 'Tomato',
-        disease: 'Late Blight',
-        step: 'Remove visibly infected leaves',
-        dueDate: 'Tomorrow',
-        completed: true),
-    const _Treatment(
-        crop: 'Maize',
-        disease: 'Common Rust',
-        step: 'Scout fields for rust progression',
-        dueDate: 'May 15',
-        completed: false),
-  ];
-
-  void _toggleComplete(int i) {
-    setState(() {
-      final t = _plans[i];
-      _plans[i] = _Treatment(
-        crop: t.crop,
-        disease: t.disease,
-        step: t.step,
-        dueDate: t.dueDate,
-        completed: !t.completed,
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final pending = _plans.where((t) => !t.completed).length;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: AppBar(
-        backgroundColor: colors.surface,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Treatment Tracker',
-                style: Theme.of(context).textTheme.titleLarge),
-            Text('$pending pending tasks',
-                style: TextStyle(
-                    color: colors.muted, fontSize: 12)),
-          ],
-        ),
-        leading: BackButton(onPressed: () => context.pop()),
-      ),
-      body: _plans.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle_outline,
-                      size: 72, color: colors.healthy),
-                  const SizedBox(height: 12),
-                  Text('All caught up!',
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text('No pending treatment plans',
-                      style: TextStyle(color: colors.muted)),
-                ],
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _plans.length,
-              separatorBuilder: (_, __) =>
-                  const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final t = _plans[i];
-                return CropGuardCard(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Checkbox(
-                        value: t.completed,
-                        activeColor: colors.primary,
-                        onChanged: (_) => _toggleComplete(i),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${t.crop} — ${t.disease}',
-                                style: TextStyle(
-                                    color: colors.onBackgroundSecondary,
-                                    fontSize: 11)),
-                            Text(
-                              t.step,
-                              style: TextStyle(
-                                color: t.completed
-                                    ? colors.muted
-                                    : colors.onBackground,
-                                decoration: t.completed
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today,
-                                    size: 12, color: colors.muted),
-                                const SizedBox(width: 4),
-                                Text(t.dueDate,
-                                    style: TextStyle(
-                                        color: colors.muted,
-                                        fontSize: 11)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+    return Consumer<TreatmentTrackerProvider>(
+      builder: (context, provider, child) {
+        final plans = provider.plans;
+        final pending = plans.where((t) => !t.completed).length;
+        final completed = plans.where((t) => t.completed).length;
+
+        return Scaffold(
+          backgroundColor: colors.background,
+          appBar: AppBar(
+            backgroundColor: colors.surface,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Treatment Tracker',
+                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  pending == 0
+                      ? 'All caught up!'
+                      : '$pending pending • $completed done',
+                  style: TextStyle(color: colors.muted, fontSize: 12),
+                ),
+              ],
             ),
+            leading: BackButton(onPressed: () => context.pop()),
+            actions: [
+              if (plans.isNotEmpty)
+                IconButton(
+                  icon: Icon(Icons.refresh_rounded, color: colors.muted),
+                  onPressed: provider.refresh,
+                  tooltip: 'Refresh',
+                ),
+            ],
+          ),
+          body: provider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : provider.error != null
+                  ? Center(
+                      child: Text(
+                        'Error: ${provider.error}',
+                        style: TextStyle(color: colors.diseaseRed),
+                      ),
+                    )
+                  : plans.isEmpty
+                      ? _EmptyState()
+                      : RefreshIndicator(
+                          onRefresh: provider.refresh,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: plans.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (_, i) {
+                              final t = plans[i];
+                              return Dismissible(
+                                key: ValueKey(t.id),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  decoration: BoxDecoration(
+                                    color: colors.diseaseRed.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(Icons.delete_outline,
+                                      color: colors.diseaseRed),
+                                ),
+                                onDismissed: (_) => provider.deletePlan(t.id),
+                                child: CropGuardCard(
+                                  backgroundColor: t.completed
+                                      ? colors.healthyBg.withValues(alpha: 0.4)
+                                      : colors.surface,
+                                  borderColor: t.completed
+                                      ? colors.healthy.withValues(alpha: 0.3)
+                                      : colors.border,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => provider.toggleComplete(i),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                              milliseconds: 200),
+                                          width: 28,
+                                          height: 28,
+                                          margin: const EdgeInsets.only(
+                                              top: 2, right: 12),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: t.completed
+                                                ? colors.healthy
+                                                : Colors.transparent,
+                                            border: Border.all(
+                                              color: t.completed
+                                                  ? colors.healthy
+                                                  : colors.border,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: t.completed
+                                              ? const Icon(Icons.check,
+                                                  size: 16,
+                                                  color: Colors.white)
+                                              : null,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${t.cropType} — ${t.diseaseName}',
+                                              style: TextStyle(
+                                                color: colors
+                                                    .onBackgroundSecondary,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              t.step,
+                                              style: TextStyle(
+                                                color: t.completed
+                                                    ? colors.muted
+                                                    : colors.onBackground,
+                                                decoration: t.completed
+                                                    ? TextDecoration
+                                                        .lineThrough
+                                                    : null,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.calendar_today,
+                                                    size: 11,
+                                                    color: colors.muted),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Due ${t.dueDateFormatted}',
+                                                  style: TextStyle(
+                                                    color: colors.muted,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+        );
+      },
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline,
+              size: 72, color: colors.healthy),
+          const SizedBox(height: 12),
+          Text('No treatment plans yet',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'After a scan, tap "Track Treatment" on the result screen.',
+            style: TextStyle(color: colors.muted, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }

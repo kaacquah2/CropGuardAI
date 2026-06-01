@@ -1,0 +1,20 @@
+{
+  "@@locale": "ee",
+  "appTitle": "CropGuard AI",
+  "home": "Aƒeme",
+  "scan": "Scan",
+  "history": "Ŋutinya",
+  "settings": "Ðoɖowo",
+  "startScanning": "Dze scan gɔme",
+  "recentScans": "Scans siwo va yi kpuie",
+  "noRecentScans": "Womekpɔ scans aɖeke o",
+  "farmHealth": "Agble ƒe lãmesẽ",
+  "login": "Ge ɖe eme",
+  "register": "Ŋlɔ ŋkɔ",
+  "logout": "Do le eme",
+  "email": "Email",
+  "password": "Password",
+  "forgotPassword": "Wò password ɖe?",
+  "guestLogin": "Yi edzi abe amedzro ene",
+  "more": "Gakpe"
+}

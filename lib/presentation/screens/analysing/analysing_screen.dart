@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/scan_feedback_helper.dart';
+import '../../../core/utils/tts_manager.dart';
 import '../scanner/scanner_provider.dart';
+import '../settings/language_provider.dart';
 
 /// Intermediate screen that runs TFLite inference on the captured image
 /// Equivalent of the "analyzing" state in ScannerViewModel / ScannerScreen
@@ -33,19 +36,68 @@ class _AnalisingScreenState extends State<AnalisingScreen>
 
   Future<void> _analyse() async {
     final provider = context.read<ScannerProvider>();
-    final id = await provider.analyseAndSave(widget.imagePath);
+    final result = await provider.analyseAndSave(widget.imagePath);
 
     if (!mounted) return;
 
-    if (id == null) {
-      // Navigate back with error
+    if (result == null) {
+      final errorMsg = provider.errorMessage ?? 'Analysis failed';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  errorMsg,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
       context.pop();
       return;
     }
 
-    // Check confidence — if below threshold show low confidence screen
-    // (The actual confidence comes from the saved detection)
-    context.replace('/result/$id');
+    final lang = context.read<LanguageProvider>().currentLanguage.code;
+    final summary = result.isHealthy
+        ? '${result.displayName} looks healthy.'
+        : '${result.displayName} detected.';
+
+    await ScanFeedbackHelper.playScanComplete(
+      isHealthy: result.isHealthy,
+      soundEnabled: true,
+      hapticEnabled: true,
+    );
+
+    if (!mounted) return;
+
+    await TtsManager().speak(summary, languageCode: lang);
+
+    if (!mounted) return;
+
+    const double kLowConfidenceThreshold = 0.60;
+
+    if (result.confidence < kLowConfidenceThreshold) {
+      context.replace(Uri(
+        path: '/low_confidence',
+        queryParameters: {
+          'confidence': result.confidence.toString(),
+          'imagePath': result.imagePath,
+        },
+      ).toString());
+    } else {
+      context.replace('/result/${result.id}');
+    }
   }
 
   @override

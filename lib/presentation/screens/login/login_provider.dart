@@ -5,6 +5,7 @@ import '../../../domain/usecases/auth/login_usecase.dart';
 import '../../../domain/usecases/auth/signin_with_google_usecase.dart';
 import '../../../domain/usecases/auth/signin_anonymously_usecase.dart';
 import '../../../domain/usecases/auth/send_password_reset_usecase.dart';
+import '../../../core/utils/email_validator.dart';
 
 enum LoginStatus { idle, loading, success, error }
 
@@ -14,20 +15,20 @@ class LoginProvider extends ChangeNotifier {
   final SignInWithGoogleUseCase _googleUseCase;
   final SignInAnonymouslyUseCase _guestUseCase;
   final SendPasswordResetUseCase _resetUseCase;
-  final SharedPreferences _prefs;
 
   LoginProvider(
     this._loginUseCase,
     this._googleUseCase,
     this._guestUseCase,
     this._resetUseCase,
-    this._prefs,
+    SharedPreferences prefs,
   );
 
   String email = '';
   String password = '';
   LoginStatus status = LoginStatus.idle;
   String? errorMessage;
+  String? successMessage;
   bool obscurePassword = true;
 
   void setEmail(String v) {
@@ -48,11 +49,19 @@ class LoginProvider extends ChangeNotifier {
   Future<void> signIn(VoidCallback onSuccess) async {
     if (email.isEmpty || password.isEmpty) {
       errorMessage = 'Please fill in all fields.';
+      successMessage = null;
+      notifyListeners();
+      return;
+    }
+    if (!EmailValidator.isValid(email)) {
+      errorMessage = 'Please enter a valid email address.';
+      successMessage = null;
       notifyListeners();
       return;
     }
     status = LoginStatus.loading;
     errorMessage = null;
+    successMessage = null;
     notifyListeners();
 
     final result = await _loginUseCase(email, password);
@@ -107,16 +116,25 @@ class LoginProvider extends ChangeNotifier {
   Future<void> sendPasswordReset() async {
     if (email.isEmpty) {
       errorMessage = 'Enter your email to reset your password.';
+      successMessage = null;
       notifyListeners();
       return;
     }
-    
+    if (!EmailValidator.isValid(email)) {
+      errorMessage = 'Please enter a valid email address.';
+      successMessage = null;
+      notifyListeners();
+      return;
+    }
+
     final result = await _resetUseCase(email);
     if (result.isSuccess) {
       errorMessage = null;
+      successMessage = 'Reset email sent! Check your inbox.';
       notifyListeners();
     } else {
       errorMessage = 'Failed to send reset email.';
+      successMessage = null;
       notifyListeners();
     }
   }
@@ -130,4 +148,3 @@ class LoginProvider extends ChangeNotifier {
     return 'Sign-in failed. Please try again.';
   }
 }
-

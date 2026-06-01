@@ -1,15 +1,15 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/theme/app_theme.dart';
 import '../../components/confidence_bar.dart';
 import '../../components/cropguard_card.dart';
 import '../../components/primary_button.dart';
+import '../../../core/di/service_locator.dart';
+import '../../../data/remote/firestore_service.dart';
+import '../../../data/remote/firebase_auth_service.dart';
 
-/// Equivalent of LowConfidenceScreen.kt
-class LowConfidenceScreen extends StatelessWidget {
+class LowConfidenceScreen extends StatefulWidget {
   final double confidence;
   final String imagePath;
 
@@ -20,9 +20,16 @@ class LowConfidenceScreen extends StatelessWidget {
   });
 
   @override
+  State<LowConfidenceScreen> createState() => _LowConfidenceScreenState();
+}
+
+class _LowConfidenceScreenState extends State<LowConfidenceScreen> {
+  bool _reportSent = false;
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final pct = (confidence * 100).toInt();
+    final pct = (widget.confidence * 100).toInt();
 
     return Scaffold(
       appBar: AppBar(
@@ -39,14 +46,14 @@ class LowConfidenceScreen extends StatelessWidget {
       body: Column(
         children: [
           // Blurred image preview
-          if (File(imagePath).existsSync())
+          if (File(widget.imagePath).existsSync())
             SizedBox(
               height: 160,
               width: double.infinity,
               child: ColorFiltered(
                 colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.4), BlendMode.srcOver),
-                child: Image.file(File(imagePath), fit: BoxFit.cover),
+                    Colors.black.withValues(alpha: 0.4), BlendMode.srcOver),
+                child: Image.file(File(widget.imagePath), fit: BoxFit.cover),
               ),
             ),
 
@@ -70,7 +77,8 @@ class LowConfidenceScreen extends StatelessWidget {
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
-                                ?.copyWith(color: colors.lowConfidence)),
+                                ?? const TextStyle()
+                                .copyWith(color: colors.lowConfidence)),
                         const SizedBox(height: 8),
                         Text(
                           'The AI detected a possible disease but is only $pct% '
@@ -79,7 +87,7 @@ class LowConfidenceScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         ConfidenceBar(
-                          confidence: confidence,
+                          confidence: widget.confidence,
                           color: colors.lowConfidence,
                         ),
                       ],
@@ -104,22 +112,86 @@ class LowConfidenceScreen extends StatelessWidget {
                     icon: Icons.camera_alt,
                     onPressed: () => context.go('/scanner'),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 44),
-                      side: BorderSide(color: colors.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                  if (!_reportSent)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 48),
+                        side: BorderSide(color: colors.border),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.feedback_outlined, size: 20),
+                      label: const Text('My crop is not in the list'),
+                      onPressed: () => _showReportDialog(context),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('Report submitted. Thank you!',
+                          style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                     ),
-                    icon: const Icon(Icons.photo_library_outlined),
-                    label: const Text('Choose from Gallery'),
-                    onPressed: () => context.go('/scanner'),
-                  ),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportDialog(BuildContext context) {
+    final cropController = TextEditingController();
+    final symptomsController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Missing Crop'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('What crop are you scanning? This helps us train our AI.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: cropController,
+              decoration: const InputDecoration(
+                labelText: 'Crop Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: symptomsController,
+              decoration: const InputDecoration(
+                labelText: 'Observed Symptoms (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final crop = cropController.text;
+              final symptoms = symptomsController.text;
+              Navigator.pop(ctx);
+              
+              final uid = sl<FirebaseAuthService>().currentUserId;
+              await sl<FirestoreService>().submitCropNotFound(
+                userId: uid,
+                suggestedCrop: crop,
+                observedSymptoms: symptoms,
+                imagePath: widget.imagePath,
+              );
+              
+              if (mounted) {
+                setState(() => _reportSent = true);
+              }
+            },
+            child: const Text('Submit'),
           ),
         ],
       ),

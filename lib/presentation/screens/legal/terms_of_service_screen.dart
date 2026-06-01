@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
 
 /// TermsOfServiceScreen — re-exported from privacy_policy_screen.dart
 /// This stub re-exports to avoid the router needing a separate import.

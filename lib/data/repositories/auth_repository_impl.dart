@@ -112,6 +112,16 @@ class AuthRepositoryImpl implements IAuthRepository {
     }
   }
 
+  @override
+  Future<Result<void>> updatePhotoUrl(String url) async {
+    try {
+      await _authService.updatePhotoUrl(url);
+      return Result.success(null);
+    } catch (e) {
+      return Result.error(AuthFailure(e.toString()));
+    }
+  }
+
   AppUser? _mapFirebaseUser(firebase_auth.User? user) {
     if (user == null) return null;
     return AppUser(

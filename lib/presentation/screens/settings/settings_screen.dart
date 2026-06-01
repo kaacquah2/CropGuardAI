@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/di/service_locator.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/remote/firebase_auth_service.dart';
+import '../../components/cropguard_text_field.dart';
 import '../../components/section_label.dart';
+import '../settings/language_provider.dart';
 import 'settings_provider.dart';
 
 /// Equivalent of SettingsScreen.kt
@@ -13,6 +17,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SettingsProvider>();
+    final langProvider = context.watch<LanguageProvider>();
     final colors = context.colors;
 
     return Scaffold(
@@ -35,12 +40,16 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
+          _ActionRow(
+            label: 'My Profile',
+            onTap: () => context.push('/profile'),
+          ),
           // Display section
-          _SectionHeader('Display'),
+          const _SectionHeader('Display'),
           _ActionRow(
             label: 'Language',
-            value: provider.currentLanguage,
-            onTap: () => _showLanguagePicker(context, provider),
+            value: langProvider.currentLanguage.displayName,
+            onTap: () => _showLanguagePicker(context, provider, langProvider),
           ),
           _ToggleRow(
             label: 'Large Text Mode',
@@ -54,15 +63,15 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           // Model & data section
-          _SectionHeader('Model & Data'),
+          const _SectionHeader('Model & Data'),
           _InfoRow(
             label: 'Model Version',
-            value: 'MobileNetV2 v1.0 (bundled)',
+            value: provider.updateMessage ?? 'MobileNetV2 v1.0 (bundled)',
             badge: 'Active',
-            actionLabel: 'Check Updates',
-            onAction: provider.checkForModelUpdates,
+            actionLabel: provider.isCheckingUpdates ? 'Checking…' : 'Check Updates',
+            onAction: provider.isCheckingUpdates ? null : provider.checkForModelUpdates,
           ),
-          _InfoRow(
+          const _InfoRow(
             label: 'Supported Crops',
             value: 'Tomato, Potato, Maize, Cassava, Rice, Banana, Groundnut + more',
           ),
@@ -78,12 +87,12 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           // About section
-          _SectionHeader('About'),
+          const _SectionHeader('About'),
           _InfoRow(
             label: 'App Version',
-            value: 'CropGuard AI v1.0.0 (Flutter)',
+            value: provider.appVersionLabel,
           ),
-          _InfoRow(
+          const _InfoRow(
             label: 'Disclaimer',
             value:
                 'CropGuard AI provides guidance only. Always consult a qualified agricultural expert for critical decisions.',
@@ -103,7 +112,11 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showLanguagePicker(BuildContext context, SettingsProvider provider) {
+  void _showLanguagePicker(
+    BuildContext context,
+    SettingsProvider provider,
+    LanguageProvider langProvider,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) {
@@ -117,24 +130,29 @@ class SettingsScreen extends StatelessWidget {
                 child: Text('Select Language',
                     style: Theme.of(ctx).textTheme.titleMedium),
               ),
-              ...provider.supportedLanguages.map((lang) {
-                final isSelected = lang == provider.currentLanguage;
+              ...AppLanguage.values.map((lang) {
+                final isSelected =
+                    langProvider.currentLanguage == lang;
                 return ListTile(
                   leading: Icon(Icons.language,
                       color: isSelected ? colors.primary : colors.muted),
-                  title: Text(lang,
-                      style: TextStyle(
-                          color: isSelected
-                              ? colors.primary
-                              : colors.onBackground,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal)),
+                  title: Text(
+                    lang.displayName,
+                    style: TextStyle(
+                      color: isSelected
+                          ? colors.primary
+                          : colors.onBackground,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
                   trailing: isSelected
                       ? Icon(Icons.check, color: colors.primary)
                       : null,
                   onTap: () {
-                    provider.setLanguage(lang);
+                    langProvider.setLanguage(lang);
+                    provider.setLanguage(lang.displayName);
                     Navigator.pop(ctx);
                   },
                 );
@@ -177,18 +195,8 @@ class SettingsScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Account?',
             style: TextStyle(color: Colors.red)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-                'This will permanently delete your account and all cloud data. This cannot be undone.'),
-            if (provider.deleteError != null) ...[
-              const SizedBox(height: 8),
-              Text(provider.deleteError!,
-                  style: const TextStyle(color: Colors.red, fontSize: 12)),
-            ],
-          ],
-        ),
+        content: const Text(
+            'Are you absolutely sure? This will permanently delete your account and all cloud data.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -196,13 +204,104 @@ class SettingsScreen extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              provider.deleteAccount(
-                  () => context.go('/login'));
+              _finalDeleteConfirmation(context, provider);
             },
-            child: const Text('Delete Permanently',
+            child: const Text('Yes, I am sure',
                 style: TextStyle(color: Colors.red)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _finalDeleteConfirmation(BuildContext context, SettingsProvider provider) {
+    final auth = sl<FirebaseAuthService>();
+    _showReauthAndDeleteDialog(context, provider, auth);
+  }
+
+  void _showReauthAndDeleteDialog(
+    BuildContext context,
+    SettingsProvider provider,
+    FirebaseAuthService auth,
+  ) {
+    String password = '';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Confirm deletion',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Re-enter your credentials to permanently delete your account.',
+              ),
+              if (auth.hasPasswordProvider) ...[
+                const SizedBox(height: 16),
+                CropGuardTextField(
+                  value: password,
+                  onChanged: (v) => setState(() => password = v),
+                  label: 'Password',
+                  obscureText: true,
+                ),
+              ],
+              if (provider.deleteError != null) ...[
+                const SizedBox(height: 8),
+                Text(provider.deleteError!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: provider.isDeleting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            if (auth.hasGoogleProvider && !auth.hasPasswordProvider)
+              TextButton(
+                onPressed: provider.isDeleting
+                    ? null
+                    : () async {
+                        await provider.deleteAccount(
+                          onSuccess: () {
+                            Navigator.pop(ctx);
+                            context.go('/login');
+                          },
+                          reauthWithGoogle: true,
+                        );
+                      },
+                child: const Text('Confirm with Google'),
+              ),
+            TextButton(
+              onPressed: provider.isDeleting
+                  ? null
+                  : () async {
+                      await provider.deleteAccount(
+                        onSuccess: () {
+                          Navigator.pop(ctx);
+                          context.go('/login');
+                        },
+                        password:
+                            auth.hasPasswordProvider ? password : null,
+                        reauthWithGoogle:
+                            auth.hasGoogleProvider && password.isEmpty,
+                      );
+                    },
+              child: provider.isDeleting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('DELETE PERMANENTLY',
+                      style: TextStyle(
+                          color: Colors.red, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }

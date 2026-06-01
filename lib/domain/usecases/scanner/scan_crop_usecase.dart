@@ -1,6 +1,7 @@
 import '../../../core/error/failures.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/utils/scan_severity.dart';
+import '../../../core/utils/streak_manager.dart';
 import '../../models/detection_result.dart';
 import '../../repositories/i_classifier_repository.dart';
 import '../../repositories/i_detection_repository.dart';
@@ -8,8 +9,13 @@ import '../../repositories/i_detection_repository.dart';
 class ScanCropUseCase {
   final IClassifierRepository _classifierRepository;
   final IDetectionRepository _detectionRepository;
+  final StreakManager _streakManager;
 
-  ScanCropUseCase(this._classifierRepository, this._detectionRepository);
+  ScanCropUseCase(
+    this._classifierRepository,
+    this._detectionRepository,
+    this._streakManager,
+  );
 
   Future<Result<DetectionResult>> call(String imagePath, String userId) async {
     final classificationResult = await _classifierRepository.classifyFromPath(imagePath);
@@ -45,7 +51,7 @@ class ScanCropUseCase {
       isHealthy: classification.isHealthy,
       cropType: classification.diseaseInfo.cropType,
       cause: classification.diseaseInfo.cause,
-      treatments: classification.diseaseInfo.treatmentSteps.join('\n'),
+      treatments: classification.diseaseInfo.treatments,
       timestamp: DateTime.now().millisecondsSinceEpoch,
     );
 
@@ -55,7 +61,8 @@ class ScanCropUseCase {
       return Result.error(saveResult.failure!);
     }
 
+    _streakManager.recordScan();
+
     return Result.success(detection.copyWith(id: saveResult.data));
   }
 }
-

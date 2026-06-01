@@ -5,8 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../components/cropguard_card.dart';
-import '../../components/farm_health_ring.dart';
+import '../../components/cropguard_text_field.dart';
 import '../../components/offline_banner.dart';
+import '../../components/primary_button.dart';
 import '../../components/section_label.dart';
 import 'profile_provider.dart';
 
@@ -63,26 +64,27 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         provider.userEmail,
                         style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                             fontSize: 13),
                       ),
                       const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: Colors.white.withOpacity(0.4)),
+                      if (provider.isPro)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.4)),
+                          ),
+                          child: const Text('PRO FARMER',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1)),
                         ),
-                        child: const Text('PRO FARMER',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1)),
-                      ),
                     ],
                   ),
                 ),
@@ -123,19 +125,14 @@ class ProfileScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SectionLabel(
+                            const SectionLabel(
                                 text: 'Account',
                                 padding:
-                                    const EdgeInsets.only(bottom: 8)),
+                                    EdgeInsets.only(bottom: 8)),
                             _ProfileRow(
-                              icon: Icons.edit,
+                              icon: Icons.edit_outlined,
                               label: 'Edit Profile',
-                              onTap: () {},
-                            ),
-                            _ProfileRow(
-                              icon: Icons.lock_outline,
-                              label: 'Privacy & Security',
-                              onTap: () => context.push('/settings'),
+                              onTap: () => _showEditProfileSheet(context),
                             ),
                             _ProfileRow(
                               icon: Icons.settings_outlined,
@@ -143,10 +140,35 @@ class ProfileScreen extends StatelessWidget {
                               onTap: () => context.push('/settings'),
                             ),
                             _ProfileRow(
+                              icon: Icons.privacy_tip_outlined,
+                              label: 'Privacy Policy',
+                              onTap: () => context.push('/privacy_policy'),
+                            ),
+                            _ProfileRow(
                               icon: Icons.book_outlined,
                               label: 'Disease Library',
                               onTap: () =>
                                   context.push('/disease_library'),
+                            ),
+                            _ProfileRow(
+                              icon: Icons.people_outline,
+                              label: 'Community',
+                              onTap: () => context.push('/community'),
+                            ),
+                            _ProfileRow(
+                              icon: Icons.map_outlined,
+                              label: 'Outbreak Map',
+                              onTap: () => context.push('/outbreak_map'),
+                            ),
+                            _ProfileRow(
+                              icon: Icons.emoji_events_outlined,
+                              label: 'Achievements',
+                              onTap: () => context.push('/achievements'),
+                            ),
+                            _ProfileRow(
+                              icon: Icons.medical_services_outlined,
+                              label: 'Treatment Tracker',
+                              onTap: () => context.push('/treatment_tracker'),
                             ),
                           ],
                         ),
@@ -158,10 +180,10 @@ class ProfileScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SectionLabel(
+                            const SectionLabel(
                                 text: 'Preferences',
                                 padding:
-                                    const EdgeInsets.only(bottom: 8)),
+                                    EdgeInsets.only(bottom: 8)),
                             _PrefToggle(
                               icon: Icons.notifications_outlined,
                               label: 'Disease Alerts',
@@ -196,7 +218,7 @@ class ProfileScreen extends StatelessWidget {
                               horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             border: Border.all(
-                                color: colors.error.withOpacity(0.3)),
+                                color: colors.error.withValues(alpha: 0.3)),
                             borderRadius: BorderRadius.circular(10),
                             color: colors.diseaseBg,
                           ),
@@ -223,6 +245,87 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showEditProfileSheet(BuildContext context) {
+    final provider = context.read<ProfileProvider>();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        var editName = provider.userName;
+        var editPhoto = provider.avatarUrl ?? '';
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: Consumer<ProfileProvider>(
+                builder: (context, profile, _) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Edit Profile',
+                          style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 16),
+                      CropGuardTextField(
+                        value: editName,
+                        onChanged: (v) => setSheetState(() => editName = v),
+                        label: 'Display name',
+                        placeholder: 'Your name',
+                      ),
+                      const SizedBox(height: 12),
+                      CropGuardTextField(
+                        value: editPhoto,
+                        onChanged: (v) => setSheetState(() => editPhoto = v),
+                        label: 'Profile photo URL',
+                        placeholder: 'https://…',
+                        keyboardType: TextInputType.url,
+                      ),
+                      if (profile.profileError != null) ...[
+                        const SizedBox(height: 8),
+                        Text(profile.profileError!,
+                            style: TextStyle(
+                                color: context.colors.error, fontSize: 12)),
+                      ],
+                      const SizedBox(height: 16),
+                      PrimaryButton(
+                        text: 'Save',
+                        isLoading: profile.isSavingProfile,
+                        onPressed: () async {
+                          profile.clearProfileError();
+                          final ok = await profile.saveProfile(
+                            displayName: editName,
+                            photoUrl: editPhoto,
+                          );
+                          if (ok && context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Profile updated')),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

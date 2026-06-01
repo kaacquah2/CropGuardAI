@@ -5,18 +5,20 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/scan_severity.dart';
 import '../../components/confidence_bar.dart';
 import '../../components/cropguard_card.dart';
 import '../../components/primary_button.dart';
 import '../../components/section_label.dart';
 import '../../components/severity_badge.dart';
-import '../../components/status_badge.dart';
 import '../../../data/remote/firebase_auth_service.dart';
 import '../../../core/di/service_locator.dart';
+import '../../../core/utils/scan_report_pdf_exporter.dart';
+import '../../../core/utils/tts_manager.dart';
+import '../../../domain/models/detection_result.dart';
+import '../settings/language_provider.dart';
+import '../settings/settings_provider.dart';
+import '../treatment_tracker/treatment_tracker_provider.dart';
 import 'result_provider.dart';
-
-const double _kLowConfidenceThreshold = 0.60;
 
 /// Equivalent of ResultScreen.kt
 class ResultScreen extends StatefulWidget {
@@ -29,17 +31,38 @@ class ResultScreen extends StatefulWidget {
 }
 
 class _ResultScreenState extends State<ResultScreen> {
+  List<String> _allLabels = [];
+  bool _didSpeakResult = false;
+
   @override
   void initState() {
     super.initState();
+    _loadLabels();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ResultProvider>().load(widget.detectionId);
     });
   }
 
+  void _speakResultOnce(DetectionResult result) {
+    if (_didSpeakResult) return;
+    _didSpeakResult = true;
+    final lang = context.read<LanguageProvider>().currentLanguage.code;
+    TtsManager().speak(result.displayName, languageCode: lang);
+  }
+
+  Future<void> _loadLabels() async {
+    final data = await DefaultAssetBundle.of(context).loadString('assets/labels.txt');
+    if (mounted) {
+      setState(() {
+        _allLabels = data.split('\n').where((l) => l.isNotEmpty).toList();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ResultProvider>();
+    final showConfidence = context.watch<SettingsProvider>().showConfidence;
     final colors = context.colors;
 
     if (provider.isLoading) {
@@ -55,20 +78,10 @@ class _ResultScreenState extends State<ResultScreen> {
     }
 
     final result = provider.result!;
-
-    // Route to low confidence screen if confidence is below threshold
-    if (result.confidence < _kLowConfidenceThreshold) {
+    if (!_didSpeakResult) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        context.replace(Uri(
-          path: '/low_confidence',
-          queryParameters: {
-            'confidence': result.confidence.toString(),
-            'imagePath': result.imagePath,
-          },
-        ).toString());
+        if (mounted) _speakResultOnce(result);
       });
-      return const SizedBox.shrink();
     }
 
     final isHealthy = result.isHealthy;
@@ -90,7 +103,9 @@ class _ResultScreenState extends State<ResultScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () {},
+            onPressed: () async {
+              await ScanReportPdfExporter.shareScanReport(result);
+            },
           ),
         ],
       ),
@@ -133,12 +148,25 @@ class _ResultScreenState extends State<ResultScreen> {
                                     fontWeight: FontWeight.bold)),
                         Text(result.cropType,
                             style: TextStyle(
-                                color: headerColor.withOpacity(0.8),
+                                color: headerColor.withValues(alpha: 0.8),
                                 fontSize: 13)),
                       ],
                     ),
                   ),
                   SeverityBadge(severity: result.severity),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.volume_up, color: Colors.white),
+                    style: IconButton.styleFrom(
+                      backgroundColor: headerColor.withValues(alpha: 0.3),
+                    ),
+                    onPressed: () {
+                      final lang = context.read<LanguageProvider>().currentLanguage.code;
+                      final treatments = result.treatments.take(3).join(". ");
+                      final text = "${result.displayName}. Severity is ${result.severity}. Treatment steps: $treatments";
+                      TtsManager().speak(text, languageCode: lang);
+                    },
+                  ),
                 ],
               ),
             ),
@@ -148,18 +176,19 @@ class _ResultScreenState extends State<ResultScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Confidence bar
-                  CropGuardCard(
-                    child: ConfidenceBar(
-                      confidence: result.confidence,
-                      color: headerColor,
+                  if (showConfidence) ...[
+                    CropGuardCard(
+                      child: ConfidenceBar(
+                        confidence: result.confidence,
+                        color: headerColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Cause
                   if (!isHealthy && result.cause.isNotEmpty) ...[
-                    SectionLabel(text: 'Cause'),
+                    const SectionLabel(text: 'Cause'),
                     const SizedBox(height: 8),
                     CropGuardCard(
                       child: Text(result.cause,
@@ -194,7 +223,7 @@ class _ResultScreenState extends State<ResultScreen> {
                                             const EdgeInsets.only(right: 8),
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: headerColor.withOpacity(0.15),
+                                          color: headerColor.withValues(alpha: 0.15),
                                         ),
                                         child: Center(
                                           child: Text(
@@ -221,8 +250,42 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(height: 16),
                   ],
 
+                  // Spray Advisory
+                  if (!isHealthy && provider.sprayAdvisory.isNotEmpty) ...[
+                    const SectionLabel(text: 'Best Spray Window'),
+                    const SizedBox(height: 8),
+                    CropGuardCard(
+                      backgroundColor: colors.primary.withValues(alpha: 0.05),
+                      child: Row(
+                        children: [
+                          Icon(Icons.wb_sunny_outlined, color: colors.primary, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              provider.sprayAdvisory,
+                              style: TextStyle(
+                                color: colors.onBackground,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Actions
                   if (!isHealthy) ...[
+                    // Track Treatment CTA
+                    _TrackTreatmentButton(
+                      detectionId: result.id,
+                      cropType: result.cropType,
+                      diseaseName: result.displayName,
+                      treatments: result.treatments,
+                    ),
+                    const SizedBox(height: 10),
                     PrimaryButton(
                       text: 'Request Expert Help',
                       icon: Icons.support_agent,
@@ -266,6 +329,33 @@ class _ResultScreenState extends State<ResultScreen> {
                               color: colors.healthy, fontSize: 13)),
                     ),
 
+                  const SizedBox(height: 10),
+
+                  // Crop Not Found Feedback
+                  if (!provider.cropNotFoundSent)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 44),
+                        side: BorderSide(color: colors.border),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: Icon(Icons.help_center_outlined,
+                          color: colors.muted, size: 16),
+                      label: Text('Don\'t see your crop here?',
+                          style: TextStyle(
+                              color: colors.onBackgroundSecondary,
+                              fontSize: 13)),
+                      onPressed: () =>
+                          _showCropNotFoundDialog(context, provider),
+                    ),
+                  if (provider.cropNotFoundSent)
+                    Center(
+                      child: Text('Crop report submitted. Thank you!',
+                          style: TextStyle(
+                              color: colors.primary, fontSize: 13)),
+                    ),
+
                   const SizedBox(height: 32),
                 ],
               ),
@@ -290,10 +380,27 @@ class _ResultScreenState extends State<ResultScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: controller,
-              maxLines: 3,
+              maxLines: 4,
+              maxLength: 500,
               decoration: const InputDecoration(
                 hintText: 'My tomatoes are showing…',
                 border: OutlineInputBorder(),
+                counterText: '', // We'll show our own counter or let it be
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) {
+                  return Text(
+                    '${value.text.length}/500',
+                    style: TextStyle(
+                        color: value.text.length >= 500 ? Colors.red : Colors.grey,
+                        fontSize: 12),
+                  );
+                },
               ),
             ),
           ],
@@ -323,12 +430,39 @@ class _ResultScreenState extends State<ResultScreen> {
       context: ctx,
       builder: (ctx) => AlertDialog(
         title: const Text('Correct the Diagnosis'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Correct disease name or label',
-            border: OutlineInputBorder(),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('What is the correct diagnosis?'),
+            const SizedBox(height: 16),
+            Autocomplete<String>(
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text == '') {
+                  return const Iterable<String>.empty();
+                }
+                return _allLabels.where((String option) {
+                  return option
+                      .toLowerCase()
+                      .contains(textEditingValue.text.toLowerCase());
+                });
+              },
+              onSelected: (String selection) {
+                controller.text = selection;
+              },
+              fieldViewBuilder:
+                  (context, fieldController, focusNode, onFieldSubmitted) {
+                return TextField(
+                  controller: fieldController,
+                  focusNode: focusNode,
+                  decoration: const InputDecoration(
+                    hintText: 'Search disease label…',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.search),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -347,6 +481,141 @@ class _ResultScreenState extends State<ResultScreen> {
             child: const Text('Submit'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showCropNotFoundDialog(BuildContext ctx, ResultProvider provider) {
+    final cropController = TextEditingController();
+    final symptomsController = TextEditingController();
+    showDialog(
+      context: ctx,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Report Missing Crop'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Help us improve! What crop is this and what do you see?'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: cropController,
+                decoration: const InputDecoration(
+                  labelText: 'Crop Name (e.g. Cocoa, Cashew)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: symptomsController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Symptoms observed',
+                  hintText: 'e.g. brown spots, wilting leaves...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              final uid = sl<FirebaseAuthService>().currentUserId;
+              provider.submitCropNotFound(
+                userId: uid,
+                suggestedCrop: cropController.text,
+                observedSymptoms: symptomsController.text,
+              );
+            },
+            child: const Text('Submit Report'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// CTA button that pre-fills the treatment plan from the current detection
+class _TrackTreatmentButton extends StatefulWidget {
+  final int detectionId;
+  final String cropType;
+  final String diseaseName;
+  final List<String> treatments;
+
+  const _TrackTreatmentButton({
+    required this.detectionId,
+    required this.cropType,
+    required this.diseaseName,
+    required this.treatments,
+  });
+
+  @override
+  State<_TrackTreatmentButton> createState() => _TrackTreatmentButtonState();
+}
+
+class _TrackTreatmentButtonState extends State<_TrackTreatmentButton> {
+  bool _saving = false;
+  bool _saved = false;
+
+  Future<void> _track() async {
+    if (_saving || _saved) return;
+    setState(() => _saving = true);
+    try {
+      await context.read<TreatmentTrackerProvider>().addFromDetection(
+            detectionId: widget.detectionId,
+            cropType: widget.cropType,
+            diseaseName: widget.diseaseName,
+            treatmentSteps: widget.treatments,
+          );
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saved = true;
+        });
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) context.push('/treatment_tracker');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              _saved ? colors.healthy : colors.primary.withValues(alpha: 0.9),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          elevation: 0,
+        ),
+        icon: _saving
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            : Icon(
+                _saved ? Icons.check_circle : Icons.assignment_add,
+                size: 18,
+              ),
+        label: Text(
+          _saved ? 'Treatment Plan Saved!' : 'Track Treatment Plan',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        onPressed: _track,
       ),
     );
   }

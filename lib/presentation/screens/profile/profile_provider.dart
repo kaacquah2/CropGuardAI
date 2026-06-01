@@ -1,34 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../data/local/database_helper.dart';
-import '../../../data/remote/firebase_auth_service.dart';
+import '../../../domain/repositories/i_auth_repository.dart';
+import '../../../domain/repositories/i_profile_repository.dart';
 
 class ProfileStats {
   final int totalScans;
   final int healthyScans;
   final int diseasedScans;
-  final int warningSans;
+  final int warningScans;
 
   const ProfileStats({
     this.totalScans = 0,
     this.healthyScans = 0,
     this.diseasedScans = 0,
-    this.warningSans = 0,
+    this.warningScans = 0,
   });
 
   double get healthScore =>
       totalScans > 0 ? healthyScans / totalScans : 0;
-  int get diseasesCaught => diseasedScans + warningSans;
+  int get diseasesCaught => diseasedScans + warningScans;
 }
 
 /// Equivalent of ProfileViewModel.kt
 class ProfileProvider extends ChangeNotifier {
-  final FirebaseAuthService _auth;
-  final DatabaseHelper _db;
-  final SharedPreferences _prefs;
+  final IProfileRepository _repository;
+  final IAuthRepository _authRepository;
 
-  ProfileProvider(this._auth, this._db, this._prefs) {
+  ProfileProvider(this._repository, this._authRepository) {
     load();
   }
 
@@ -37,46 +35,99 @@ class ProfileProvider extends ChangeNotifier {
   bool offlineMode = false;
   bool highQualityScans = true;
   bool isOffline = false;
+  bool isPro = false;
 
-  String get userName => _auth.currentUserName;
-  String get userEmail => _auth.currentUserEmail;
-  String? get avatarUrl => _auth.currentUserPhotoUrl;
+  String get userName => _authRepository.currentUser?.displayName ?? 'Farmer';
+  String get userEmail => _authRepository.currentUser?.email ?? '';
+  String? get avatarUrl => _authRepository.currentUser?.photoUrl;
 
   Future<void> load() async {
-    final rawStats = await _db.getFarmStats();
-    stats = ProfileStats(
-      totalScans: rawStats['total'] ?? 0,
-      healthyScans: rawStats['healthy'] ?? 0,
-      diseasedScans: rawStats['diseased'] ?? 0,
-    );
+    final result = await _repository.getFarmStats();
+    if (result.isSuccess) {
+      final rawStats = result.data!;
+      final total = rawStats['total'] ?? 0;
+      stats = ProfileStats(
+        totalScans: total,
+        healthyScans: rawStats['healthy'] ?? 0,
+        diseasedScans: rawStats['diseased'] ?? 0,
+      );
+      isPro = total >= 100;
+    }
 
-    alertsEnabled = _prefs.getBool('alerts_enabled') ?? true;
-    offlineMode = _prefs.getBool('offline_mode') ?? false;
-    highQualityScans = _prefs.getBool('high_quality_scans') ?? true;
+    alertsEnabled = _repository.getAlertsEnabled();
+    offlineMode = _repository.getOfflineMode();
+    highQualityScans = _repository.getHighQualityScans();
 
     notifyListeners();
   }
 
   void setAlertsEnabled(bool v) {
     alertsEnabled = v;
-    _prefs.setBool('alerts_enabled', v);
+    _repository.setAlertsEnabled(v);
     notifyListeners();
   }
 
   void setOfflineMode(bool v) {
     offlineMode = v;
-    _prefs.setBool('offline_mode', v);
+    _repository.setOfflineMode(v);
     notifyListeners();
   }
 
   void setHighQualityScans(bool v) {
     highQualityScans = v;
-    _prefs.setBool('high_quality_scans', v);
+    _repository.setHighQualityScans(v);
     notifyListeners();
   }
 
   Future<void> signOut(VoidCallback onDone) async {
-    await _auth.signOut();
+    await _repository.signOut();
     onDone();
+  }
+
+  String? profileError;
+  bool isSavingProfile = false;
+
+  Future<bool> saveProfile({
+    required String displayName,
+    String? photoUrl,
+  }) async {
+    final trimmedName = displayName.trim();
+    if (trimmedName.isEmpty) {
+      profileError = 'Display name cannot be empty.';
+      notifyListeners();
+      return false;
+    }
+
+    isSavingProfile = true;
+    profileError = null;
+    notifyListeners();
+
+    final nameResult = await _authRepository.updateDisplayName(trimmedName);
+    if (!nameResult.isSuccess) {
+      profileError = 'Could not update display name.';
+      isSavingProfile = false;
+      notifyListeners();
+      return false;
+    }
+
+    final trimmedPhoto = photoUrl?.trim();
+    if (trimmedPhoto != null && trimmedPhoto.isNotEmpty) {
+      final photoResult = await _authRepository.updatePhotoUrl(trimmedPhoto);
+      if (!photoResult.isSuccess) {
+        profileError = 'Could not update profile photo URL.';
+        isSavingProfile = false;
+        notifyListeners();
+        return false;
+      }
+    }
+
+    isSavingProfile = false;
+    notifyListeners();
+    return true;
+  }
+
+  void clearProfileError() {
+    profileError = null;
+    notifyListeners();
   }
 }

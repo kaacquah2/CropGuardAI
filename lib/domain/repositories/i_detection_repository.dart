@@ -6,7 +6,7 @@ abstract class IDetectionRepository {
   Future<Result<int>> saveDetection(DetectionResult result);
   Future<Result<List<DetectionResult>>> getHistory({String? userId});
   Future<Result<DetectionResult?>> getDetection(int id);
-  Future<Result<List<DetectionResult>>> getRecentDetections({int limit = 5});
+  Future<Result<List<DetectionResult>>> getRecentDetections({String? userId, int limit = 5});
   Future<Result<void>> deleteDetection(int id);
   Future<Result<void>> clearHistory();
   

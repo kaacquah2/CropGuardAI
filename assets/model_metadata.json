@@ -5,8 +5,8 @@
   "input_channels": 3,
   "normalize_mean": [0.0, 0.0, 0.0],
   "normalize_std": [255.0, 255.0, 255.0],
-  "num_classes": 54,
-  "version": "1.0",
+  "num_classes": 93,
+  "version": "2.0",
   "architecture": "MobileNetV2",
   "confidence_threshold": 0.60,
   "labels_file": "labels.txt"

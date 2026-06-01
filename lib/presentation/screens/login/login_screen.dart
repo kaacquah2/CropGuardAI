@@ -17,18 +17,33 @@ class LoginScreen extends StatelessWidget {
   }
 }
 
-class _LoginBody extends StatelessWidget {
+class _LoginBody extends StatefulWidget {
   const _LoginBody();
+
+  @override
+  State<_LoginBody> createState() => _LoginBodyState();
+}
+
+class _LoginBodyState extends State<_LoginBody> {
+  final FocusNode _emailFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _emailFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LoginProvider>();
     final colors = context.colors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,6 +81,7 @@ class _LoginBody extends StatelessWidget {
 
               // Email
               CropGuardTextField(
+                focusNode: _emailFocusNode,
                 value: provider.email,
                 onChanged: provider.setEmail,
                 label: 'Email',
@@ -94,12 +110,52 @@ class _LoginBody extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => provider.sendPasswordReset(),
+                  onPressed: () {
+                    if (provider.email.isEmpty) {
+                      _emailFocusNode.requestFocus();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter your email first'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    } else {
+                      provider.sendPasswordReset().then((_) {
+                        if (!context.mounted) return;
+                        final msg = provider.successMessage ??
+                            provider.errorMessage;
+                        if (msg == null) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(msg),
+                            backgroundColor: provider.successMessage != null
+                                ? Colors.green.shade700
+                                : null,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      });
+                    }
+                  },
                   child: Text('Forgot password?',
                       style: TextStyle(color: colors.primary, fontSize: 13)),
                 ),
               ),
               const SizedBox(height: 8),
+
+              if (provider.successMessage != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Text(provider.successMessage!,
+                      style: TextStyle(color: Colors.green.shade800, fontSize: 13)),
+                ),
 
               // Error
               if (provider.errorMessage != null)
@@ -110,7 +166,7 @@ class _LoginBody extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.diseaseBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.error.withOpacity(0.3)),
+                    border: Border.all(color: colors.error.withValues(alpha: 0.3)),
                   ),
                   child: Text(provider.errorMessage!,
                       style: TextStyle(color: colors.error, fontSize: 13)),
@@ -138,8 +194,8 @@ class _LoginBody extends StatelessWidget {
 
               // Google sign-in
               _SocialButton(
-                label: 'Continue with Google',
-                icon: Icons.g_mobiledata,
+                label: 'Sign in with Google',
+                icon: Icons.login, // Better than g_mobiledata
                 onTap: () =>
                     provider.signInWithGoogle(() => context.go('/home')),
               ),
@@ -177,6 +233,7 @@ class _LoginBody extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

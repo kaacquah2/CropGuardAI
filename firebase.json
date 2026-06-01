@@ -1,0 +1,21 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "crop-guard-d36e5",
+          "configurations": {
+            "android": "1:229730630873:android:9d788c9df0a5c4dea852c8",
+            "ios": "1:229730630873:ios:c245dc79efcc7082a852c8"
+          }
+        }
+      }
+    }
+  }
+}

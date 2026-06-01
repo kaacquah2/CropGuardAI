@@ -1,20 +1,39 @@
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+
 /// Equivalent of GhanaSeasonalTip.kt
 class GhanaSeasonalTip {
   static bool isHighRisk() {
+    final config = FirebaseRemoteConfig.instance;
+    final majorStart = config.getInt('rainy_major_start');
+    final majorEnd = config.getInt('rainy_major_end');
+    final minorStart = config.getInt('rainy_minor_start');
+    final minorEnd = config.getInt('rainy_minor_end');
+
     final month = DateTime.now().month;
-    // March–June and September–November are high-risk rainy seasons in Ghana
-    return (month >= 3 && month <= 6) || (month >= 9 && month <= 11);
+
+    // Default to hardcoded values if config is not set (0)
+    if (majorStart == 0) {
+      return (month >= 3 && month <= 6) || (month >= 9 && month <= 11);
+    }
+
+    return (month >= majorStart && month <= majorEnd) ||
+        (month >= minorStart && month <= minorEnd);
   }
 
   static String getAlertMessage() {
+    final config = FirebaseRemoteConfig.instance;
+    final majorMsg = config.getString('rainy_major_msg');
+    final minorMsg = config.getString('rainy_minor_msg');
+
     final month = DateTime.now().month;
+    
+    // Major season (usually March-June)
     if (month >= 3 && month <= 6) {
-      return '⚠️ Major rainy season: high risk of fungal diseases. '
-          'Inspect crops frequently.';
+      return majorMsg.isNotEmpty ? majorMsg : '⚠️ Major rainy season: high risk of fungal diseases. Inspect crops frequently.';
     }
+    // Minor season (usually Sept-Nov)
     if (month >= 9 && month <= 11) {
-      return '⚠️ Minor rainy season: watch for blight and mildew. '
-          'Ensure good field drainage.';
+      return minorMsg.isNotEmpty ? minorMsg : '⚠️ Minor rainy season: watch for blight and mildew. Ensure good field drainage.';
     }
     return '';
   }
